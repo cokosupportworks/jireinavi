@@ -31,7 +31,7 @@
   <script type="text/babel" data-type="module">
     import React, { useState, useMemo, useEffect, useRef } from 'https://esm.sh/react@18';
     import { createRoot } from 'https://esm.sh/react-dom@18/client';
-    import { Search, Sparkles, BookOpen, Tag, X, User, ChevronDown, ChevronUp, Bot, Loader2, Settings, Key, Lock, AlertCircle, ExternalLink } from 'https://esm.sh/lucide-react@0.292.0';
+    import { Search, Sparkles, BookOpen, Tag, X, User, ChevronDown, ChevronUp, Bot, Loader2, Settings, Key, Lock, AlertCircle, ExternalLink, Bookmark, Copy, Check, Trash2, Clock, ChevronRight } from 'https://esm.sh/lucide-react@0.292.0';
 
     const DUMMY_DATA = [
       { id: 1, category: "健康の保持", title: "睡眠時間レコーディング", summary: "毎日の就寝・起床時間を表に記録し、必要な睡眠時間がとれているか視覚的に確認する。", scene: "個別", tags: ["昼夜逆転", "睡眠不足", "日中の強い眠気", "生活リズムの乱れ", "自己管理能力の不足", "健康状態の維持困難", "テスト用タグA", "テスト用タグB", "テスト用タグC", "テスト用タグD", "ダミータグ1", "ダミータグ2", "ダミータグ3", "ダミータグ4", "ダミータグ5", "ダミータグ6", "ダミータグ7", "ダミータグ8", "ダミータグ9", "ダミータグ10", "ダミータグ11", "ダミータグ12", "ダミータグ13", "ダミータグ14", "ダミータグ15"] },
@@ -44,12 +44,6 @@
       "すべて", "健康の保持", "心理的な安定", "人間関係の形成", "環境の把握", "身体の動き", "コミュニケーション"
     ];
 
-    const CATEGORY_ROWS = [
-      ["すべて", "健康の保持", "心理的な安定"],
-      ["人間関係の形成", "環境の把握", "身体の動き"],
-      ["コミュニケーション"]
-    ];
-
     const CATEGORY_COLORS = {
       "健康の保持": "bg-green-100 text-green-800 border-green-400",
       "心理的な安定": "bg-pink-100 text-pink-800 border-pink-400",
@@ -58,6 +52,61 @@
       "身体の動き": "bg-blue-100 text-blue-800 border-blue-400",
       "コミュニケーション": "bg-yellow-100 text-yellow-800 border-yellow-400",
       "default": "bg-gray-100 text-gray-800 border-gray-400"
+    };
+
+    const CopyButton = ({ text }) => {
+      const [copied, setCopied] = useState(false);
+
+      const handleCopy = () => {
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(() => setCopied(true)).catch(fallbackCopy);
+        } else {
+          fallbackCopy();
+        }
+      };
+
+      const fallbackCopy = () => {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          setCopied(true);
+        } catch (err) {
+          console.error('Copy failed', err);
+        }
+        document.body.removeChild(textArea);
+      };
+
+      useEffect(() => {
+        if (copied) {
+          const t = setTimeout(() => setCopied(false), 2000);
+          return () => clearTimeout(t);
+        }
+      }, [copied]);
+
+      return (
+        <button
+          onClick={handleCopy}
+          className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-extrabold text-xl border-[3px] transition-all active:scale-95 shadow-sm w-full sm:w-auto ${
+            copied ? 'bg-green-100 text-green-700 border-green-300' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+          }`}
+        >
+          {copied ? <Check className="w-6 h-6" /> : <Copy className="w-6 h-6" />}
+          {copied ? 'コピーしました' : '📋 コピーする'}
+        </button>
+      );
+    };
+
+    const formatDate = (ts) => {
+      const d = new Date(ts);
+      const pad = (n) => n.toString().padStart(2, '0');
+      return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     };
 
     function App() {
@@ -88,7 +137,27 @@
       const [aiTargetCase, setAiTargetCase] = useState(null);
       const [aiError, setAiError] = useState("");
 
+      const [myList, setMyList] = useState(() => {
+        try {
+          const saved = localStorage.getItem('app_my_list');
+          return saved ? JSON.parse(saved) : [];
+        } catch (e) {
+          return [];
+        }
+      });
+      const [isMyListOpen, setIsMyListOpen] = useState(false);
+      const [confirmAddCase, setConfirmAddCase] = useState(null);
+      const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+      const [viewAiPlan, setViewAiPlan] = useState(null);
+      const [viewSavedCase, setViewSavedCase] = useState(null);
+
+      const [lastModifiedDate, setLastModifiedDate] = useState("");
+
       const listRef = useRef(null);
+
+      useEffect(() => {
+        localStorage.setItem('app_my_list', JSON.stringify(myList));
+      }, [myList]);
 
       useEffect(() => {
         if (!isUnlocked) return;
@@ -97,6 +166,16 @@
           try {
             const response = await fetch('./cases.json');
             if (!response.ok) throw new Error("Network response was not ok");
+            
+            const lastModifiedHeader = response.headers.get('Last-Modified');
+            if (lastModifiedHeader) {
+              const date = new Date(lastModifiedHeader);
+              const formattedDate = `${date.getFullYear()}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+              setLastModifiedDate(formattedDate);
+            } else {
+              setLastModifiedDate("-");
+            }
+
             const rawData = await response.json();
             
             let dataArray = [];
@@ -125,6 +204,7 @@
             setCases(DUMMY_DATA);
             setIsFallbackMode(true);
             setIsDataLoading(false);
+            setLastModifiedDate("テスト環境");
           }
         };
         loadCasesData();
@@ -212,7 +292,25 @@
         }
       };
 
-      // ★大改修：Google APIから直接「今使えるモデル一覧」を取得し、自動で最適なモデルを選ぶ最強のロジック
+      const addToMyList = (type, title, content, caseData) => {
+        const newItem = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+          type, 
+          timestamp: Date.now(),
+          title,
+          content,
+          caseData
+        };
+        setMyList(prev => [newItem, ...prev]);
+      };
+
+      const executeDeleteFromMyList = () => {
+        if (confirmDeleteId) {
+          setMyList(prev => prev.filter(item => item.id !== confirmDeleteId));
+          setConfirmDeleteId(null);
+        }
+      };
+
       const generateAiPlan = async (item) => {
         if (!apiKey) {
           setTempApiKey("");
@@ -227,39 +325,25 @@
         setAiError("");
 
         try {
-          // 1. まず「利用可能なモデル一覧」をGoogleから取得する
           const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
           const listRes = await fetch(listUrl);
           
-          if (!listRes.ok) {
-             throw new Error("APIキーが無効か、モデル一覧が取得できませんでした。設定からAPIキーが正しく入力されているか確認してください。");
-          }
+          if (!listRes.ok) throw new Error("APIキーが無効か、モデル一覧が取得できませんでした。設定からAPIキーが正しく入力されているか確認してください。");
           
           const listData = await listRes.json();
           const availableModels = listData.models || [];
           
-          // 2. テキスト生成(generateContent)をサポートしているモデルだけを絞り込む
           const generateModels = availableModels.filter(m => 
             m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent")
           );
 
-          if (generateModels.length === 0) {
-            throw new Error("このAPIキーで利用可能なテキスト生成モデルが見つかりません。");
-          }
+          if (generateModels.length === 0) throw new Error("このAPIキーで利用可能なテキスト生成モデルが見つかりません。");
 
-          // 3. 取得したリストの中から、一番賢いGeminiモデルを自動で探し出す
           let selectedModel = generateModels.find(m => m.name.includes("gemini-1.5-flash"));
-          if (!selectedModel) {
-             selectedModel = generateModels.find(m => m.name.includes("gemini-1.5-pro"));
-          }
-          if (!selectedModel) {
-             selectedModel = generateModels.find(m => m.name.includes("gemini"));
-          }
-          if (!selectedModel) {
-             selectedModel = generateModels[0]; // 最悪の場合、最初に見つかったモデルを使う
-          }
+          if (!selectedModel) selectedModel = generateModels.find(m => m.name.includes("gemini-1.5-pro"));
+          if (!selectedModel) selectedModel = generateModels.find(m => m.name.includes("gemini"));
+          if (!selectedModel) selectedModel = generateModels[0]; 
 
-          // Googleが教えてくれた「正確なモデル名」をそのまま利用する
           const exactModelName = selectedModel.name; 
           const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${exactModelName}:generateContent?key=${apiKey}`;
 
@@ -285,7 +369,6 @@
             contents: [{ parts: [{ text: prompt }] }]
           };
 
-          // 4. 正確なモデル名で、いざ生成リクエストを送信
           const res = await fetch(generateUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -308,6 +391,7 @@
           
           if (text) {
             setAiContent(text);
+            addToMyList('ai_plan', item.title, text, item);
           } else {
             throw new Error("応答テキストが空でした");
           }
@@ -381,6 +465,14 @@
                 自立活動の指導事例ナビ
                 <Sparkles className="w-8 h-8 text-yellow-500" />
               </h1>
+              
+              <button 
+                onClick={() => setIsMyListOpen(true)}
+                className="absolute right-[80px] w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-500 hover:bg-blue-50 border-[3px] border-blue-200 active:scale-95 transition-all shadow-sm"
+              >
+                <Bookmark className="w-6 h-6 fill-current" />
+              </button>
+
               <button 
                 onClick={() => { setTempApiKey(apiKey); setIsSettingsOpen(true); }}
                 className="absolute right-4 w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 border-[3px] border-gray-200 active:scale-95 transition-all shadow-sm"
@@ -531,9 +623,12 @@
                           )}
                         </div>
                         
-                        <h3 className="text-3xl font-black text-gray-800 mb-2 line-clamp-1 leading-tight h-[40px] shrink-0">
+                        <button 
+                          onClick={() => setConfirmAddCase(item)}
+                          className="text-3xl font-black text-gray-800 mb-2 line-clamp-1 leading-tight h-[40px] shrink-0 text-left hover:text-blue-600 transition-colors w-full"
+                        >
                           {item.title}
-                        </h3>
+                        </button>
                         
                         <p 
                           className="text-gray-700 text-xl font-bold mb-3 bg-gray-50 p-2 border-2 border-gray-100 rounded-lg max-h-[100px] overflow-y-auto leading-snug [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full"
@@ -563,19 +658,241 @@
               </div>
             </main>
 
-            <footer className="absolute bottom-0 left-0 w-[768px] h-[60px] bg-white/95 backdrop-blur shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] border-t-2 border-purple-200 z-30 flex items-center justify-end px-4">
+            {/* ★修正: relativeを削除し、absolute bottom-0 が正常に効くように修正（一番下に固定されます） */}
+            <footer className="absolute bottom-0 left-0 w-[768px] h-[60px] bg-white/95 backdrop-blur shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] border-t-2 border-purple-200 z-30 flex items-center">
+              
+              <div className="absolute left-[30px] text-[10px] text-gray-500 font-bold whitespace-nowrap">
+                最終更新日 {lastModifiedDate}
+              </div>
+
+              <div className="absolute left-1/2 -translate-x-1/2 text-xs text-gray-500 font-bold whitespace-nowrap">
+                2026 ココサポートワークス
+              </div>
+
               <button 
                 onClick={scrollToTop}
-                className="mr-[20px] h-[44px] px-6 rounded-full bg-purple-100 text-purple-700 font-extrabold text-xl border-2 border-purple-300 hover:bg-purple-200 active:scale-95 transition-all flex items-center justify-center gap-2"
+                className="absolute right-[20px] h-[44px] px-6 rounded-full bg-purple-100 text-purple-700 font-extrabold text-xl border-2 border-purple-300 hover:bg-purple-200 active:scale-95 transition-all flex items-center justify-center gap-2"
               >
                 <ChevronUp className="w-6 h-6" />
                 リストの先頭へ
               </button>
             </footer>
 
+            {/* --- 各種モーダル群 --- */}
+
+            {confirmAddCase && (
+              <div className="absolute inset-0 bg-black/60 z-[130] flex items-center justify-center p-6 backdrop-blur-sm">
+                <div className="bg-white w-[500px] rounded-3xl shadow-2xl flex flex-col p-8 border-4 border-blue-200 animate-in fade-in zoom-in duration-200 relative text-center">
+                  <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Bookmark className="w-10 h-10 text-blue-500 fill-current" />
+                  </div>
+                  <h2 className="text-2xl font-extrabold text-gray-800 mb-2">マイリストに追加</h2>
+                  <p className="text-xl font-bold text-gray-600 mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    「{confirmAddCase.title}」を<br/>マイリストに保存しますか？
+                  </p>
+                  <div className="flex justify-center gap-4">
+                    <button 
+                      onClick={() => setConfirmAddCase(null)}
+                      className="px-6 py-3 rounded-xl font-extrabold text-xl text-gray-500 bg-gray-100 hover:bg-gray-200 border-[3px] border-gray-200 transition-colors active:scale-95"
+                    >
+                      キャンセル
+                    </button>
+                    <button 
+                      onClick={() => {
+                        addToMyList('saved_case', confirmAddCase.title, null, confirmAddCase);
+                        setConfirmAddCase(null);
+                      }}
+                      className="px-8 py-3 rounded-xl font-extrabold text-xl text-white bg-blue-500 hover:bg-blue-600 shadow-md transition-colors active:scale-95 border-[3px] border-blue-600"
+                    >
+                      追加する
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {confirmDeleteId && (
+              <div className="absolute inset-0 bg-black/60 z-[130] flex items-center justify-center p-6 backdrop-blur-sm">
+                <div className="bg-white w-[500px] rounded-3xl shadow-2xl flex flex-col p-8 border-4 border-red-200 animate-in fade-in zoom-in duration-200 relative text-center">
+                  <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Trash2 className="w-10 h-10 text-red-500" />
+                  </div>
+                  <h2 className="text-2xl font-extrabold text-gray-800 mb-2">項目の削除</h2>
+                  <p className="text-xl font-bold text-gray-600 mb-6">
+                    この項目をマイリストから<br/>完全に削除してもよろしいですか？
+                  </p>
+                  <div className="flex justify-center gap-4">
+                    <button 
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="px-6 py-3 rounded-xl font-extrabold text-xl text-gray-500 bg-gray-100 hover:bg-gray-200 border-[3px] border-gray-200 transition-colors active:scale-95"
+                    >
+                      キャンセル
+                    </button>
+                    <button 
+                      onClick={executeDeleteFromMyList}
+                      className="px-8 py-3 rounded-xl font-extrabold text-xl text-white bg-red-500 hover:bg-red-600 shadow-md transition-colors active:scale-95 border-[3px] border-red-600"
+                    >
+                      削除する
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isMyListOpen && (
+              <div className="absolute inset-0 bg-gray-100 z-[110] flex flex-col animate-in slide-in-from-bottom-4 duration-300">
+                <header className="h-[80px] bg-white flex items-center justify-between px-6 border-b-[3px] border-blue-200 shrink-0 shadow-sm">
+                  <h2 className="text-3xl font-extrabold text-blue-800 flex items-center gap-3">
+                     <Bookmark className="w-8 h-8 text-blue-500 fill-current" />
+                     📚 マイリスト
+                  </h2>
+                  <button 
+                    onClick={() => setIsMyListOpen(false)}
+                    className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 border-2 border-gray-200 active:scale-95 shadow-sm"
+                  >
+                    <X className="w-8 h-8" />
+                  </button>
+                </header>
+
+                <div 
+                  className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-blue-300 [&::-webkit-scrollbar-thumb]:rounded-full"
+                  style={{ WebkitOverflowScrolling: 'touch' }}
+                >
+                  {myList.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                      <Bookmark className="w-24 h-24 mb-4 text-gray-300" />
+                      <p className="text-2xl font-extrabold">マイリストは空です</p>
+                      <p className="text-lg font-bold mt-2">事例のタイトルをタップするか、<br/>AI指導案を作成すると追加されます</p>
+                    </div>
+                  ) : (
+                    myList.map(item => (
+                      <div key={item.id} className="bg-white p-5 rounded-2xl shadow-sm border-2 border-gray-200 flex flex-col relative gap-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3 text-lg font-bold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                            {item.type === 'ai_plan' ? (
+                              <><Bot className="w-6 h-6 text-amber-500"/> AI指導案</>
+                            ) : (
+                              <><Bookmark className="w-6 h-6 text-blue-500 fill-current"/> 保存した事例</>
+                            )}
+                            <span className="flex items-center gap-1 ml-2 text-base font-medium">
+                              <Clock className="w-5 h-5"/> {formatDate(item.timestamp)}
+                            </span>
+                          </div>
+                          
+                          <button 
+                            onClick={() => setConfirmDeleteId(item.id)} 
+                            className="p-2 text-gray-400 hover:text-red-500 rounded-xl hover:bg-red-50 transition-colors border-2 border-transparent hover:border-red-200"
+                          >
+                             <Trash2 className="w-7 h-7"/>
+                          </button>
+                        </div>
+                        
+                        <h4 className="text-3xl font-black text-gray-800 line-clamp-2 leading-tight">
+                          {item.title}
+                        </h4>
+                        
+                        <button 
+                          onClick={() => item.type === 'ai_plan' ? setViewAiPlan(item) : setViewSavedCase(item)} 
+                          className={`mt-2 py-3 px-4 rounded-xl font-extrabold text-xl flex items-center justify-between transition-transform active:scale-95 border-[3px] shadow-sm ${
+                            item.type === 'ai_plan' 
+                              ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                              : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                          }`}
+                        >
+                           {item.type === 'ai_plan' ? "✨ AI指導案を見る" : "🔖 事例の詳細を見る"} 
+                           <ChevronRight className="w-6 h-6"/>
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ★修正: モーダルのレスポンシブ対応 (max-h-[90%]) */}
+            {viewSavedCase && (
+              <div className="absolute inset-0 bg-black/60 z-[120] flex items-center justify-center p-6 backdrop-blur-sm">
+                <div className="bg-white w-full h-[90%] max-h-[800px] rounded-3xl shadow-2xl flex flex-col overflow-hidden relative border-4 border-blue-300 animate-in fade-in zoom-in duration-200">
+                  <header className="h-[80px] bg-blue-50 flex items-center justify-between px-6 border-b-[3px] border-blue-200 shrink-0">
+                    <h2 className="text-2xl font-extrabold text-blue-800 flex items-center gap-2">
+                       <Bookmark className="w-8 h-8 text-blue-500 fill-current" />
+                       保存した事例
+                    </h2>
+                    <button 
+                      onClick={() => setViewSavedCase(null)}
+                      className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 border-2 border-gray-200 active:scale-95"
+                    >
+                      <X className="w-8 h-8" />
+                    </button>
+                  </header>
+                  <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xl font-extrabold px-3 py-1 rounded-lg border-2 ${CATEGORY_COLORS[viewSavedCase.caseData.category] || CATEGORY_COLORS["default"]}`}>
+                        {viewSavedCase.caseData.category}
+                      </span>
+                      <span className="flex items-center gap-1 text-xl font-extrabold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg border-2 border-indigo-200">
+                        <User className="w-5 h-5" />
+                        {viewSavedCase.caseData.scene}
+                      </span>
+                    </div>
+                    <h3 className="text-3xl font-black text-gray-800 leading-tight">
+                      {viewSavedCase.title}
+                    </h3>
+                    <div className="bg-gray-50 p-4 rounded-xl border-2 border-gray-200">
+                      <p className="text-xl font-bold text-gray-700 leading-relaxed">
+                        {viewSavedCase.caseData.summary}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {(viewSavedCase.caseData.tags || []).map(tag => (
+                        <span key={tag} className="px-3 py-1 text-lg font-extrabold text-gray-600 bg-white border-2 border-gray-300 rounded-lg">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ★修正: モーダルのレスポンシブ対応 (max-h-[90%]) */}
+            {viewAiPlan && (
+              <div className="absolute inset-0 bg-black/60 z-[120] flex items-center justify-center p-6 backdrop-blur-sm">
+                <div className="bg-white w-full h-[90%] max-h-[900px] rounded-3xl shadow-2xl flex flex-col overflow-hidden relative border-4 border-amber-300 animate-in fade-in zoom-in duration-200">
+                  <header className="h-[80px] bg-amber-50 flex items-center justify-between px-6 border-b-[3px] border-amber-200 shrink-0">
+                    <h2 className="text-2xl font-extrabold text-amber-800 flex items-center gap-2">
+                       <Bot className="w-8 h-8 text-amber-500" />
+                       保存されたAI指導案
+                    </h2>
+                    <button 
+                      onClick={() => setViewAiPlan(null)}
+                      className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 border-2 border-gray-200 active:scale-95"
+                    >
+                      <X className="w-8 h-8" />
+                    </button>
+                  </header>
+                  <div className="bg-white px-6 py-4 border-b-2 border-gray-100 shrink-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <p className="text-xl font-bold text-gray-700 truncate flex-1 w-full">
+                      対象事例：{viewAiPlan.title}
+                    </p>
+                    <CopyButton text={viewAiPlan.content} />
+                  </div>
+                  <div 
+                    className="flex-1 overflow-y-auto p-6 bg-gray-50 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-300 [&::-webkit-scrollbar-thumb]:rounded-full"
+                    style={{ WebkitOverflowScrolling: 'touch' }}
+                  >
+                    <div className="text-xl font-bold text-gray-800 leading-loose whitespace-pre-wrap bg-white p-6 rounded-2xl border-2 border-gray-200 shadow-sm">
+                      {viewAiPlan.content}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ★修正: モーダルのレスポンシブ対応 (max-h-[90%]) */}
             {isSettingsOpen && (
               <div className="absolute inset-0 bg-black/60 z-[110] flex items-center justify-center p-6 backdrop-blur-sm">
-                <div className="bg-white w-[600px] rounded-3xl shadow-2xl flex flex-col p-8 border-4 border-gray-200 animate-in fade-in zoom-in duration-200 relative">
+                <div className="bg-white w-[600px] max-h-[90%] overflow-y-auto rounded-3xl shadow-2xl flex flex-col p-8 border-4 border-gray-200 animate-in fade-in zoom-in duration-200 relative">
                   <button 
                     onClick={() => setIsSettingsOpen(false)}
                     className="absolute top-6 right-6 w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 active:scale-95"
@@ -636,9 +953,10 @@
               </div>
             )}
 
+            {/* ★修正: モーダルのレスポンシブ対応 (max-h-[90%]) */}
             {isAiModalOpen && (
               <div className="absolute inset-0 bg-black/60 z-[100] flex items-center justify-center p-6 backdrop-blur-sm">
-                <div className="bg-white w-full h-[900px] rounded-3xl shadow-2xl flex flex-col overflow-hidden relative border-4 border-amber-300 animate-in fade-in zoom-in duration-200">
+                <div className="bg-white w-full h-[90%] max-h-[900px] rounded-3xl shadow-2xl flex flex-col overflow-hidden relative border-4 border-amber-300 animate-in fade-in zoom-in duration-200">
                   
                   <header className="h-[80px] bg-gradient-to-r from-amber-100 to-orange-100 flex items-center justify-between px-6 border-b-[3px] border-amber-200 shrink-0">
                     <h2 className="text-2xl font-extrabold text-orange-800 flex items-center gap-2">
@@ -653,14 +971,17 @@
                     </button>
                   </header>
 
-                  <div className="bg-orange-50 px-6 py-3 border-b-2 border-orange-100 shrink-0">
-                    <p className="text-lg font-bold text-gray-700 truncate">
+                  <div className="bg-white px-6 py-4 border-b-2 border-orange-100 shrink-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <p className="text-xl font-bold text-gray-700 truncate flex-1 w-full">
                       対象事例：{aiTargetCase?.title}
                     </p>
+                    {!aiLoading && !aiError && aiContent && (
+                      <CopyButton text={aiContent} />
+                    )}
                   </div>
 
                   <div 
-                    className="flex-1 overflow-y-auto p-6 bg-white [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-300 [&::-webkit-scrollbar-thumb]:rounded-full"
+                    className="flex-1 overflow-y-auto p-6 bg-gray-50 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-300 [&::-webkit-scrollbar-thumb]:rounded-full"
                     style={{ WebkitOverflowScrolling: 'touch' }}
                   >
                     {aiLoading ? (
@@ -675,7 +996,7 @@
                         <p className="text-xl font-extrabold text-center whitespace-pre-wrap">{aiError}</p>
                       </div>
                     ) : (
-                      <div className="text-xl font-bold text-gray-800 leading-loose whitespace-pre-wrap">
+                      <div className="text-xl font-bold text-gray-800 leading-loose whitespace-pre-wrap bg-white p-6 rounded-2xl border-2 border-gray-200 shadow-sm">
                         {aiContent}
                       </div>
                     )}
