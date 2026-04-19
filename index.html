@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>自立活動の指導事例ナビ</title>
+  <title>自活指導事例ナビ</title>
   
   <link rel="apple-touch-icon" href="./apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -212,7 +212,7 @@
         }
       };
 
-      // ★修正: 一般公開されているモデル名（gemini-1.5-flash）に変更し、エラー詳細を取得するように強化
+      // ★大改修：Google APIから直接「今使えるモデル一覧」を取得し、自動で最適なモデルを選ぶ最強のロジック
       const generateAiPlan = async (item) => {
         if (!apiKey) {
           setTempApiKey("");
@@ -226,10 +226,45 @@
         setAiContent("");
         setAiError("");
 
-        // ★修正ポイント: モデル名が見つからないエラーへの対策として「-latest」を付与して確実な名前に変更
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+        try {
+          // 1. まず「利用可能なモデル一覧」をGoogleから取得する
+          const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+          const listRes = await fetch(listUrl);
+          
+          if (!listRes.ok) {
+             throw new Error("APIキーが無効か、モデル一覧が取得できませんでした。設定からAPIキーが正しく入力されているか確認してください。");
+          }
+          
+          const listData = await listRes.json();
+          const availableModels = listData.models || [];
+          
+          // 2. テキスト生成(generateContent)をサポートしているモデルだけを絞り込む
+          const generateModels = availableModels.filter(m => 
+            m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent")
+          );
 
-        const prompt = `あなたは特別支援教育の経験豊富な専門家です。
+          if (generateModels.length === 0) {
+            throw new Error("このAPIキーで利用可能なテキスト生成モデルが見つかりません。");
+          }
+
+          // 3. 取得したリストの中から、一番賢いGeminiモデルを自動で探し出す
+          let selectedModel = generateModels.find(m => m.name.includes("gemini-1.5-flash"));
+          if (!selectedModel) {
+             selectedModel = generateModels.find(m => m.name.includes("gemini-1.5-pro"));
+          }
+          if (!selectedModel) {
+             selectedModel = generateModels.find(m => m.name.includes("gemini"));
+          }
+          if (!selectedModel) {
+             selectedModel = generateModels[0]; // 最悪の場合、最初に見つかったモデルを使う
+          }
+
+          // Googleが教えてくれた「正確なモデル名」をそのまま利用する
+          const exactModelName = selectedModel.name; 
+          const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${exactModelName}:generateContent?key=${apiKey}`;
+
+          const prompt = `あなたは特別支援教育の経験豊富な専門家です。明るく、具体的で、先生方が実践しやすい言葉遣いで記述してください。
+
 以下の「自立活動の指導事例」データを元に、明日から実際の授業で使える具体的な【指導の略案】を作成してください。
 
 対象：小学生〜中学生の該当課題を持つ児童生徒
@@ -246,55 +281,43 @@
 概要：${item.summary}
 課題タグ：${(item.tags || []).join(', ')}`;
 
-        const payload = {
-          contents: [{ parts: [{ text: prompt }] }],
-          systemInstruction: { parts: [{ text: "明るく、具体的で、先生方が実践しやすい言葉遣いで記述してください。" }] }
-        };
+          const payload = {
+            contents: [{ parts: [{ text: prompt }] }]
+          };
 
-        const delays = [1000, 2000, 4000, 8000, 16000];
-
-        for (let i = 0; i < 5; i++) {
-          try {
-            const res = await fetch(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload)
-            });
-            
-            // ★修正ポイント: エラーの詳細な理由（JSON）を取得して表示する
-            if (!res.ok) {
-              let errorMsg = `HTTP Error: ${res.status}`;
-              try {
-                const errorData = await res.json();
-                if (errorData.error && errorData.error.message) {
-                  errorMsg = errorData.error.message;
-                }
-              } catch (e) {
-                // JSONのパースに失敗した場合は無視
+          // 4. 正確なモデル名で、いざ生成リクエストを送信
+          const res = await fetch(generateUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          
+          if (!res.ok) {
+            let errorMsg = `HTTP Error: ${res.status}`;
+            try {
+              const errorData = await res.json();
+              if (errorData.error && errorData.error.message) {
+                errorMsg = errorData.error.message;
               }
-              throw new Error(errorMsg);
-            }
-            
-            const data = await res.json();
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            
-            if (text) {
-              setAiContent(text);
-              break;
-            } else {
-              throw new Error("応答テキストが空でした");
-            }
-          } catch (err) {
-            console.error("AI Generation Error:", err);
-            if (i === 4) {
-              // ★修正ポイント: なんのエラーで失敗したか、理由を画面に表示する
-              setAiError(`生成失敗: ${err.message}`);
-            } else {
-              await new Promise(r => setTimeout(r, delays[i]));
-            }
+            } catch (e) {}
+            throw new Error(`生成エラー: ${errorMsg}`);
           }
+          
+          const data = await res.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          
+          if (text) {
+            setAiContent(text);
+          } else {
+            throw new Error("応答テキストが空でした");
+          }
+
+        } catch (err) {
+          console.error("AI Generation Error:", err);
+          setAiError(`${err.message}`);
+        } finally {
+          setAiLoading(false);
         }
-        setAiLoading(false);
       };
 
       if (!isUnlocked) {
@@ -649,7 +672,6 @@
                     ) : aiError ? (
                       <div className="w-full h-full flex flex-col items-center justify-center text-red-500 gap-4">
                         <X className="w-16 h-16" />
-                        {/* ★修正ポイント: エラーの詳細がそのまま画面に出るようにしました */}
                         <p className="text-xl font-extrabold text-center whitespace-pre-wrap">{aiError}</p>
                       </div>
                     ) : (
