@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>自立活動の指導事例ナビ</title>
+  
+  <!-- Tailwind CSS の読み込み -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Babel (ブラウザ内でJSXを変換するため) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <style>
+    /* iOSでの意図しないスクロールや選択を防止する設定 */
+    body {
+      margin: 0;
+      overflow: hidden;
+      -webkit-user-select: none;
+      user-select: none;
+      background-color: #111827; /* gray-900 */
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- React とアプリの本体スクリプト -->
+  <script type="text/babel" data-type="module">
+    import React, { useState, useMemo, useEffect, useRef } from 'https://esm.sh/react@18';
+    import { createRoot } from 'https://esm.sh/react-dom@18/client';
+    // ★追加: ExternalLink（外部リンクアイコン）をインポート
+    import { Search, Sparkles, BookOpen, Tag, X, User, ChevronDown, ChevronUp, Bot, Loader2, Settings, Key, Lock, AlertCircle, ExternalLink } from 'https://esm.sh/lucide-react@0.292.0';
+
+    const DUMMY_DATA = [
+      { id: 1, category: "健康の保持", title: "睡眠時間レコーディング", summary: "毎日の就寝・起床時間を表に記録し、必要な睡眠時間がとれているか視覚的に確認する。", scene: "個別", tags: ["昼夜逆転", "睡眠不足", "日中の強い眠気", "生活リズムの乱れ", "自己管理能力の不足", "健康状態の維持困難", "テスト用タグA", "テスト用タグB", "テスト用タグC", "テスト用タグD", "ダミータグ1", "ダミータグ2", "ダミータグ3", "ダミータグ4", "ダミータグ5", "ダミータグ6", "ダミータグ7", "ダミータグ8", "ダミータグ9", "ダミータグ10", "ダミータグ11", "ダミータグ12", "ダミータグ13", "ダミータグ14", "ダミータグ15"] },
+      { id: 2, category: "健康の保持", title: "朝の光浴びルーティン", summary: "起床時にカーテンを開け、朝日を浴びることで体内時計をリセットする習慣をつける。", scene: "個別", tags: ["朝起きられない", "覚醒水準が低い", "自律神経の乱れ", "体内時計のズレ", "生活習慣の未定着", "テスト用タグE", "テスト用タグF", "ダミータグ16", "ダミータグ17", "ダミータグ18", "ダミータグ19", "ダミータグ20", "ダミータグ21", "ダミータグ22", "ダミータグ23", "ダミータグ24"] },
+      { id: 3, category: "心理的な安定", title: "リラックス魔法の深呼吸", summary: "イライラやパニックを感じた時に、魔法の呪文を唱えながら3回深呼吸をして心を落ち着かせる練習。", scene: "集団", tags: ["パニック", "感情のコントロール", "強い不安", "リラクゼーション"] },
+      { id: 4, category: "人間関係の形成", title: "ありがとうカード交換会", summary: "友達の良かったところや感謝をカードに書いて交換し、自己肯定感と他者への思いやりを育む。", scene: "集団", tags: ["他者理解", "自己肯定感の低下", "コミュニケーション", "集団参加への不安"] }
+    ];
+
+    const CATEGORIES = [
+      "すべて", "健康の保持", "心理的な安定", "人間関係の形成", "環境の把握", "身体の動き", "コミュニケーション"
+    ];
+
+    const CATEGORY_ROWS = [
+      ["すべて", "健康の保持", "心理的な安定"],
+      ["人間関係の形成", "環境の把握", "身体の動き"],
+      ["コミュニケーション"]
+    ];
+
+    const CATEGORY_COLORS = {
+      "健康の保持": "bg-green-100 text-green-800 border-green-400",
+      "心理的な安定": "bg-pink-100 text-pink-800 border-pink-400",
+      "人間関係の形成": "bg-orange-100 text-orange-800 border-orange-400",
+      "環境の把握": "bg-purple-100 text-purple-800 border-purple-400",
+      "身体の動き": "bg-blue-100 text-blue-800 border-blue-400",
+      "コミュニケーション": "bg-yellow-100 text-yellow-800 border-yellow-400",
+      "default": "bg-gray-100 text-gray-800 border-gray-400"
+    };
+
+    function App() {
+      // ★追加: パスコードロック用のState
+      const [isUnlocked, setIsUnlocked] = useState(() => localStorage.getItem('app_unlocked') === 'true');
+      const [passcodeInput, setPasscodeInput] = useState("");
+      const [passcodeError, setPasscodeError] = useState("");
+
+      const [cases, setCases] = useState([]);
+      const [isDataLoading, setIsDataLoading] = useState(true);
+      const [isFallbackMode, setIsFallbackMode] = useState(false);
+
+      const [searchQuery, setSearchQuery] = useState("");
+      const [selectedCategory, setSelectedCategory] = useState("すべて");
+      const [selectedTags, setSelectedTags] = useState([]);
+      
+      const [scale, setScale] = useState(1);
+      const [appHeight, setAppHeight] = useState(1024);
+      
+      const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+      const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || "");
+      const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+      const [tempApiKey, setTempApiKey] = useState("");
+
+      const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+      const [aiLoading, setAiLoading] = useState(false);
+      const [aiContent, setAiContent] = useState("");
+      const [aiTargetCase, setAiTargetCase] = useState(null);
+      const [aiError, setAiError] = useState("");
+
+      const listRef = useRef(null);
+
+      useEffect(() => {
+        // ロックされている間はデータの読み込みを保留し、無駄な処理を防ぐ
+        if (!isUnlocked) return;
+
+        const loadCasesData = async () => {
+          try {
+            const response = await fetch('./cases.json');
+            if (!response.ok) throw new Error("Network response was not ok");
+            const rawData = await response.json();
+            
+            let dataArray = [];
+            if (Array.isArray(rawData)) {
+              dataArray = rawData;
+            } else if (typeof rawData === 'object' && rawData !== null) {
+              const firstArrayKey = Object.keys(rawData).find(key => Array.isArray(rawData[key]));
+              if (firstArrayKey) dataArray = rawData[firstArrayKey];
+            }
+
+            const formattedCases = dataArray.map(item => {
+              let tagsArray = [];
+              if (Array.isArray(item.tags)) {
+                tagsArray = item.tags;
+              } else if (typeof item.tags === 'string') {
+                tagsArray = item.tags.split(',').map(t => t.trim()).filter(Boolean);
+              }
+              return { ...item, tags: tagsArray };
+            });
+
+            if (formattedCases.length === 0) throw new Error("有効なデータが見つかりません");
+            setCases(formattedCases);
+            setIsDataLoading(false);
+          } catch (error) {
+            console.warn("ローカル/プレビュー環境のため、テストデータを読み込みました:", error);
+            setCases(DUMMY_DATA);
+            setIsFallbackMode(true);
+            setIsDataLoading(false);
+          }
+        };
+        loadCasesData();
+      }, [isUnlocked]);
+
+      useEffect(() => {
+        const handleResize = () => {
+          const currentScale = window.innerWidth / 768;
+          setScale(currentScale);
+          const calculatedHeight = window.innerHeight / currentScale;
+          setAppHeight(calculatedHeight);
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+      }, []);
+
+      const allTags = useMemo(() => {
+        const tags = new Set();
+        if (Array.isArray(cases)) {
+          cases.forEach(c => {
+            if (selectedCategory === "すべて" || c.category === selectedCategory) {
+              if (Array.isArray(c.tags)) {
+                c.tags.forEach(t => tags.add(t));
+              }
+            }
+          });
+        }
+        return Array.from(tags).sort();
+      }, [cases, selectedCategory]);
+
+      const filteredCases = useMemo(() => {
+        if (!Array.isArray(cases)) return [];
+        return cases.filter(c => {
+          const matchCategory = selectedCategory === "すべて" || c.category === selectedCategory;
+          const caseTags = Array.isArray(c.tags) ? c.tags : [];
+          const matchSearch = c.title?.includes(searchQuery) || c.summary?.includes(searchQuery) || caseTags.some(tag => tag.includes(searchQuery));
+          const matchTags = selectedTags.every(t => caseTags.includes(t));
+          return matchCategory && matchSearch && matchTags;
+        });
+      }, [cases, searchQuery, selectedCategory, selectedTags]);
+
+      const toggleTag = (tag) => {
+        if (selectedTags.includes(tag)) {
+          setSelectedTags(selectedTags.filter(t => t !== tag));
+        } else {
+          setSelectedTags([...selectedTags, tag]);
+        }
+      };
+
+      const scrollToTop = () => {
+        if (listRef.current) {
+          listRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      };
+
+      const handleSaveApiKey = () => {
+        setApiKey(tempApiKey);
+        localStorage.setItem('gemini_api_key', tempApiKey);
+        setIsSettingsOpen(false);
+      };
+
+      const handleDeleteApiKey = () => {
+        setApiKey("");
+        setTempApiKey("");
+        localStorage.removeItem('gemini_api_key');
+      };
+
+      // ★追加: パスコードの判定ロジック（難読化対応）
+      const handleUnlockSubmit = (e) => {
+        e.preventDefault();
+        
+        // 入力された文字を「反転させてBase64エンコード」し、正解の暗号と比較する
+        // 正解のパスコード「cs1ou9lk3ai」のハッシュ値が「aWEza2w5dW8xc2M=」になります
+        try {
+          const hashedInput = btoa(passcodeInput.split('').reverse().join(''));
+          const secret = "aWEza2w5dW8xc2M=";
+
+          if (hashedInput === secret) {
+            localStorage.setItem('app_unlocked', 'true');
+            setIsUnlocked(true);
+            setPasscodeError("");
+          } else {
+            setPasscodeError("パスコードが正しくありません");
+            setPasscodeInput("");
+          }
+        } catch (error) {
+          setPasscodeError("無効な文字が含まれています");
+        }
+      };
+
+      const generateAiPlan = async (item) => {
+        if (!apiKey) {
+          setTempApiKey("");
+          setIsSettingsOpen(true);
+          return;
+        }
+
+        setAiTargetCase(item);
+        setIsAiModalOpen(true);
+        setAiLoading(true);
+        setAiContent("");
+        setAiError("");
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+        const prompt = `あなたは特別支援教育の経験豊富な専門家です。
+以下の「自立活動の指導事例」データを元に、明日から実際の授業で使える具体的な【指導の略案】を作成してください。
+
+対象：小学生〜中学生の該当課題を持つ児童生徒
+出力形式（以下の見出しに沿って箇条書きなどでわかりやすく）：
+【指導の目標】
+【準備物・環境設定】
+【指導の展開（導入・展開・まとめ）】
+【指導上の留意点・評価基準】
+
+--- 事例データ ---
+名称：${item.title}
+区分：${item.category}
+場面：${item.scene}
+概要：${item.summary}
+課題タグ：${(item.tags || []).join(', ')}`;
+
+        const payload = {
+          contents: [{ parts: [{ text: prompt }] }],
+          systemInstruction: { parts: [{ text: "明るく、具体的で、先生方が実践しやすい言葉遣いで記述してください。" }] }
+        };
+
+        const delays = [1000, 2000, 4000, 8000, 16000];
+
+        for (let i = 0; i < 5; i++) {
+          try {
+            const res = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
+            
+            if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+            
+            const data = await res.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            
+            if (text) {
+              setAiContent(text);
+              break;
+            } else {
+              throw new Error("応答テキストが空でした");
+            }
+          } catch (err) {
+            if (i === 4) {
+              setAiError("AIの生成に失敗しました。時間をおいて再度お試しください。");
+            } else {
+              await new Promise(r => setTimeout(r, delays[i]));
+            }
+          }
+        }
+        setAiLoading(false);
+      };
+
+      // ★追加: ロック画面のレンダリング
+      if (!isUnlocked) {
+        return (
+          <div className="fixed inset-0 bg-gray-900 flex items-center justify-center overflow-hidden select-none touch-none">
+             <div className="bg-white p-10 rounded-3xl shadow-2xl flex flex-col items-center max-w-md w-full mx-6 border-4 border-purple-200 animate-in fade-in zoom-in duration-300">
+                <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                  <Lock className="w-12 h-12 text-purple-600" />
+                </div>
+                <h2 className="text-3xl font-extrabold text-gray-800 mb-3">アクセス制限</h2>
+                <p className="text-gray-500 font-bold mb-8 text-center text-lg leading-relaxed">
+                  このアプリを利用するには<br/>パスコードを入力してください
+                </p>
+                
+                <form onSubmit={handleUnlockSubmit} className="w-full flex flex-col gap-5">
+                  <input
+                    type="password"
+                    value={passcodeInput}
+                    onChange={(e) => setPasscodeInput(e.target.value)}
+                    className="w-full p-5 rounded-2xl border-[3px] border-gray-200 focus:border-purple-500 outline-none text-2xl font-bold font-mono text-center shadow-sm"
+                    placeholder="パスコード"
+                  />
+                  {passcodeError && (
+                    <p className="text-red-500 font-extrabold text-center bg-red-50 p-2 rounded-lg border-2 border-red-200">
+                      {passcodeError}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    className="w-full py-5 rounded-2xl font-extrabold text-2xl text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg transition-transform active:scale-95 mt-2"
+                  >
+                    ロック解除
+                  </button>
+                </form>
+             </div>
+          </div>
+        );
+      }
+
+      // ロック解除済みの場合はメインアプリを描画
+      return (
+        <div className="fixed inset-0 bg-gray-900 overflow-hidden select-none">
+          <div 
+            id="app-container" 
+            className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 absolute top-0 left-0 overflow-hidden flex flex-col"
+            style={{ 
+              width: '768px', 
+              height: `${appHeight}px`,
+              transform: `scale(${scale})`,
+              transformOrigin: 'top left',
+            }}
+          >
+            
+            {/* ヘッダー領域 */}
+            <header className="absolute top-0 left-0 w-[768px] h-[60px] flex items-center justify-center bg-white/95 backdrop-blur shadow-md border-b border-purple-200 z-30">
+              {isFallbackMode && (
+                <div className="absolute left-4 px-2 py-1 bg-yellow-100 border border-yellow-300 rounded text-xs font-bold text-yellow-700 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> テストモード
+                </div>
+              )}
+              <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-500 flex items-center gap-2">
+                <Sparkles className="w-8 h-8 text-yellow-500" />
+                自立活動の指導事例ナビ
+                <Sparkles className="w-8 h-8 text-yellow-500" />
+              </h1>
+              <button 
+                onClick={() => { setTempApiKey(apiKey); setIsSettingsOpen(true); }}
+                className="absolute right-4 w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 border-[3px] border-gray-200 active:scale-95 transition-all shadow-sm"
+              >
+                <Settings className="w-6 h-6" />
+              </button>
+            </header>
+
+            {/* JSONデータ読み込み中の表示 */}
+            {isDataLoading && (
+              <div className="absolute top-[60px] left-0 w-[768px] h-full bg-white/80 z-50 flex flex-col items-center justify-center backdrop-blur-sm">
+                <Loader2 className="w-16 h-16 text-purple-500 animate-spin mb-4" />
+                <p className="text-2xl font-extrabold text-gray-600">事例データを読み込んでいます...</p>
+              </div>
+            )}
+
+            {/* 検索・フィルター領域 */}
+            <section 
+              className="absolute top-[60px] left-0 w-[768px] bg-white/95 border-b-4 border-purple-300 shadow-lg flex flex-col transition-all duration-300 z-20 overflow-hidden"
+              style={{
+                height: isFilterOpen ? `${appHeight - 120}px` : '64px'
+              }}
+            >
+              <div className="h-[64px] w-full p-2 flex gap-2 items-center shrink-0">
+                <div className="relative flex-1 h-full">
+                  <Search className="absolute top-2.5 left-4 w-7 h-7 text-purple-400" />
+                  <input
+                    type="text"
+                    className="w-full h-full pl-12 pr-4 rounded-xl border-[3px] border-purple-200 focus:border-purple-500 outline-none text-xl font-bold bg-white shadow-inner"
+                    placeholder="キーワード検索..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <button 
+                  onClick={() => setIsFilterOpen(!isFilterOpen)}
+                  className={`h-full w-[140px] rounded-xl border-[3px] font-extrabold text-lg flex items-center justify-center gap-1 transition-colors ${
+                    isFilterOpen 
+                      ? 'bg-gray-100 text-gray-600 border-gray-300' 
+                      : 'bg-purple-600 text-white border-purple-700 shadow-md'
+                  }`}
+                >
+                  詳細条件
+                  {isFilterOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+              </div>
+
+              <div className={`flex-1 flex flex-col p-2 pt-0 gap-2 transition-opacity duration-300 min-h-0 ${isFilterOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                
+                {/* 区分選択 */}
+                <div className="bg-white p-2 rounded-xl border-2 border-gray-100 shadow-sm shrink-0 flex flex-col">
+                  <h2 className="text-xl font-extrabold text-gray-500 mb-1 flex items-center gap-1 shrink-0 h-[28px]">
+                    <BookOpen className="w-6 h-6" /> 区分選択
+                  </h2>
+                  <div className="flex flex-wrap content-start gap-2 pt-1">
+                    {CATEGORIES.map(category => (
+                      <button
+                        key={category}
+                        onClick={() => setSelectedCategory(category)}
+                        style={{ paddingLeft: '5px', paddingRight: '5px' }}
+                        className={`h-[42px] text-[24px] leading-none font-extrabold rounded border-[3px] transition-colors whitespace-nowrap shrink-0 ${
+                          selectedCategory === category
+                            ? 'bg-purple-600 text-white border-purple-600'
+                            : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                        }`}
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* タグ絞り込み */}
+                <div className="bg-white p-2 rounded-xl border-2 border-gray-100 shadow-sm flex-1 flex flex-col min-h-0 overflow-hidden">
+                  <h2 className="text-xl font-extrabold text-gray-500 mb-1 flex items-center gap-1 shrink-0 h-[28px]">
+                    <Tag className="w-6 h-6" /> タグ絞り込み
+                  </h2>
+                  <div 
+                    className="flex-1 overflow-y-auto overflow-x-hidden p-1 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-purple-300 [&::-webkit-scrollbar-thumb]:rounded-full"
+                    style={{ WebkitOverflowScrolling: 'touch' }}
+                  >
+                    <div className="flex flex-wrap content-start gap-2 pb-4">
+                      {allTags.map(tag => {
+                        const isSelected = selectedTags.includes(tag);
+                        return (
+                          <button
+                            key={tag}
+                            onClick={() => toggleTag(tag)}
+                            style={{ paddingLeft: '5px', paddingRight: '5px' }}
+                            className={`h-[38px] text-[22px] leading-none font-extrabold rounded border-[3px] transition-colors inline-flex items-center whitespace-nowrap shrink-0 ${
+                              isSelected ? 'bg-pink-100 text-pink-700 border-pink-400' : 'bg-white text-gray-600 border-gray-200'
+                            }`}
+                          >
+                            <span>{tag}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </section>
+
+            {/* 検索結果領域 */}
+            <main 
+              className="absolute left-0 w-[768px] p-4 flex flex-col transition-all duration-300 z-10"
+              style={{
+                top: '124px',
+                height: `${appHeight - 184}px`
+              }}
+            >
+              <div className="flex justify-between items-end mb-2 h-[30px] shrink-0">
+                <span className="font-extrabold text-gray-700 text-2xl">
+                  該当：{filteredCases.length} 件
+                </span>
+              </div>
+
+              <div 
+                ref={listRef}
+                className="flex-1 overflow-y-auto min-h-0 pr-2 pb-4 flex flex-col gap-4 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-purple-300 [&::-webkit-scrollbar-thumb]:rounded-full"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
+                {(!isDataLoading && filteredCases.length === 0) ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                    <Sparkles className="w-20 h-20 mb-4" />
+                    <p className="text-2xl font-extrabold">該当する事例がありません</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4">
+                    {filteredCases.map((item) => (
+                      <div 
+                        key={item.id} 
+                        className="bg-white rounded-2xl p-4 shadow-md border-2 border-gray-200 flex flex-col h-[280px] shrink-0 relative"
+                      >
+                        <div className="flex justify-start items-center mb-2 h-[32px] shrink-0 gap-2">
+                          <span className={`text-xl font-extrabold px-2 py-0.5 rounded border-2 ${CATEGORY_COLORS[item.category] || CATEGORY_COLORS["default"]}`}>
+                            {item.category}
+                          </span>
+                          <span className="flex items-center gap-1 text-xl font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border-2 border-indigo-200">
+                            <User className="w-5 h-5" />
+                            {item.scene}
+                          </span>
+                          
+                          {apiKey && (
+                            <button 
+                              onClick={() => generateAiPlan(item)}
+                              className="ml-auto bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white font-extrabold px-3 py-1 rounded-lg text-lg flex items-center gap-1 shadow-md active:scale-95 transition-transform border-2 border-orange-300"
+                            >
+                              <Sparkles className="w-5 h-5 text-yellow-100" />
+                              ✨AI指導案
+                            </button>
+                          )}
+                        </div>
+                        
+                        <h3 className="text-3xl font-black text-gray-800 mb-2 line-clamp-1 leading-tight h-[40px] shrink-0">
+                          {item.title}
+                        </h3>
+                        
+                        <p 
+                          className="text-gray-700 text-xl font-bold mb-3 bg-gray-50 p-2 border-2 border-gray-100 rounded-lg max-h-[100px] overflow-y-auto leading-snug [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full"
+                          style={{ WebkitOverflowScrolling: 'touch' }}
+                        >
+                          {item.summary}
+                        </p>
+                        
+                        <div 
+                          className="flex flex-wrap content-start gap-1.5 shrink-0 mt-auto pt-1 max-h-[72px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full"
+                          style={{ WebkitOverflowScrolling: 'touch' }}
+                        >
+                          {(item.tags || []).map(tag => (
+                            <span 
+                              key={tag} 
+                              style={{ paddingLeft: '5px', paddingRight: '5px' }}
+                              className="text-[20px] leading-none font-extrabold text-gray-600 bg-white border-2 border-gray-300 rounded h-[32px] inline-flex items-center shrink-0"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </main>
+
+            {/* フッター領域 */}
+            <footer className="absolute bottom-0 left-0 w-[768px] h-[60px] bg-white/95 backdrop-blur shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] border-t-2 border-purple-200 z-30 flex items-center justify-end px-4">
+              <button 
+                onClick={scrollToTop}
+                className="mr-[20px] h-[44px] px-6 rounded-full bg-purple-100 text-purple-700 font-extrabold text-xl border-2 border-purple-300 hover:bg-purple-200 active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <ChevronUp className="w-6 h-6" />
+                リストの先頭へ
+              </button>
+            </footer>
+
+            {/* APIキー設定モーダル */}
+            {isSettingsOpen && (
+              <div className="absolute inset-0 bg-black/60 z-[110] flex items-center justify-center p-6 backdrop-blur-sm">
+                <div className="bg-white w-[600px] rounded-3xl shadow-2xl flex flex-col p-8 border-4 border-gray-200 animate-in fade-in zoom-in duration-200 relative">
+                  <button 
+                    onClick={() => setIsSettingsOpen(false)}
+                    className="absolute top-6 right-6 w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 active:scale-95"
+                  >
+                    <X className="w-8 h-8" />
+                  </button>
+                  
+                  <h2 className="text-3xl font-extrabold text-gray-800 flex items-center gap-2 mb-6">
+                    <Key className="w-8 h-8 text-gray-600" />
+                    APIキー設定
+                  </h2>
+                  
+                  <p className="text-lg font-bold text-gray-600 mb-4 leading-relaxed bg-gray-50 p-4 rounded-xl">
+                    AI機能を利用するには、Gemini APIキーが必要です。<br />
+                    入力されたキーは<span className="text-red-500">お使いのブラウザ（端末内）にのみ保存</span>され、外部のサーバー等に送信されることはありません。
+                  </p>
+
+                  {/* ★追加: Google AI Studioへの外部リンクボタン */}
+                  <a 
+                    href="https://aistudio.google.com/app/apikey" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="mb-6 w-full flex items-center justify-center gap-2 py-4 px-4 bg-blue-50 text-blue-700 font-extrabold text-xl rounded-xl border-[3px] border-blue-200 hover:bg-blue-100 active:scale-95 transition-all shadow-sm"
+                  >
+                    <ExternalLink className="w-6 h-6" />
+                    APIキーの取得・確認はこちら (Google AI Studio)
+                  </a>
+
+                  <div className="flex flex-col gap-2 mb-8">
+                    <label className="text-base font-bold text-gray-500 flex items-center gap-1">
+                      <Lock className="w-5 h-5" /> Gemini API Key
+                    </label>
+                    <input
+                      type="password"
+                      className="w-full p-4 rounded-xl border-4 border-gray-200 focus:border-purple-500 outline-none text-2xl font-bold font-mono"
+                      placeholder="AIzaSy..."
+                      value={tempApiKey}
+                      onChange={(e) => setTempApiKey(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-4 mt-auto">
+                    {apiKey && (
+                      <button 
+                        onClick={handleDeleteApiKey}
+                        className="px-6 py-3 rounded-xl font-extrabold text-xl text-red-600 bg-red-50 hover:bg-red-100 border-[3px] border-red-200 transition-colors active:scale-95"
+                      >
+                        キーを削除
+                      </button>
+                    )}
+                    <button 
+                      onClick={handleSaveApiKey}
+                      className="px-8 py-3 rounded-xl font-extrabold text-xl text-white bg-purple-600 hover:bg-purple-700 shadow-md transition-colors active:scale-95"
+                    >
+                      保存して閉じる
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* AI指導案モーダル */}
+            {isAiModalOpen && (
+              <div className="absolute inset-0 bg-black/60 z-[100] flex items-center justify-center p-6 backdrop-blur-sm">
+                <div className="bg-white w-full h-[900px] rounded-3xl shadow-2xl flex flex-col overflow-hidden relative border-4 border-amber-300 animate-in fade-in zoom-in duration-200">
+                  
+                  <header className="h-[80px] bg-gradient-to-r from-amber-100 to-orange-100 flex items-center justify-between px-6 border-b-[3px] border-amber-200 shrink-0">
+                    <h2 className="text-2xl font-extrabold text-orange-800 flex items-center gap-2">
+                       <Bot className="w-8 h-8 text-orange-600" />
+                       ✨AI指導案アシスタント
+                    </h2>
+                    <button 
+                      onClick={() => setIsAiModalOpen(false)}
+                      className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 border-2 border-gray-200 active:scale-95"
+                    >
+                      <X className="w-8 h-8" />
+                    </button>
+                  </header>
+
+                  <div className="bg-orange-50 px-6 py-3 border-b-2 border-orange-100 shrink-0">
+                    <p className="text-lg font-bold text-gray-700 truncate">
+                      対象事例：{aiTargetCase?.title}
+                    </p>
+                  </div>
+
+                  <div 
+                    className="flex-1 overflow-y-auto p-6 bg-white [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-300 [&::-webkit-scrollbar-thumb]:rounded-full"
+                    style={{ WebkitOverflowScrolling: 'touch' }}
+                  >
+                    {aiLoading ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-amber-600 gap-4">
+                        <Loader2 className="w-16 h-16 animate-spin" />
+                        <p className="text-2xl font-extrabold animate-pulse">AIが指導案を考えています...</p>
+                        <p className="text-lg font-bold text-amber-700/70">数秒お待ちください</p>
+                      </div>
+                    ) : aiError ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-red-500 gap-4">
+                        <X className="w-16 h-16" />
+                        <p className="text-2xl font-extrabold">{aiError}</p>
+                      </div>
+                    ) : (
+                      <div className="text-xl font-bold text-gray-800 leading-loose whitespace-pre-wrap">
+                        {aiContent}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      );
+    }
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
