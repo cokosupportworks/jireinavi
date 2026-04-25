@@ -6,6 +6,7 @@
   <title>自立活動の指導事例ナビ</title>
   
   <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <link rel="icon" href="apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="自立活動ナビ">
@@ -31,7 +32,7 @@
   <script type="text/babel" data-type="module">
     import React, { useState, useMemo, useEffect, useRef } from 'https://esm.sh/react@18';
     import { createRoot } from 'https://esm.sh/react-dom@18/client';
-    import { Search, Sparkles, BookOpen, Tag, X, User, ChevronDown, ChevronUp, Bot, Loader2, Settings, Key, Lock, AlertCircle, ExternalLink, Bookmark, Copy, Check, Trash2, Clock, ChevronRight } from 'https://esm.sh/lucide-react@0.292.0';
+    import { Search, Sparkles, BookOpen, Tag, X, User, ChevronDown, ChevronUp, Bot, Loader2, Settings, Key, Lock, AlertCircle, ExternalLink, Bookmark, Copy, Check, Trash2, Clock, ChevronRight, HelpCircle, CreditCard, CheckCircle } from 'https://esm.sh/lucide-react@0.292.0';
 
     const DUMMY_DATA = [
       { id: 1, category: "健康の保持", title: "睡眠時間レコーディング", summary: "毎日の就寝・起床時間を表に記録し、必要な睡眠時間がとれているか視覚的に確認する。", scene: "個別", tags: ["昼夜逆転", "睡眠不足", "日中の強い眠気", "生活リズムの乱れ", "自己管理能力の不足", "健康状態の維持困難", "テスト用タグA", "テスト用タグB", "テスト用タグC", "テスト用タグD", "ダミータグ1", "ダミータグ2", "ダミータグ3", "ダミータグ4", "ダミータグ5", "ダミータグ6", "ダミータグ7", "ダミータグ8", "ダミータグ9", "ダミータグ10", "ダミータグ11", "ダミータグ12", "ダミータグ13", "ダミータグ14", "ダミータグ15"] },
@@ -136,6 +137,8 @@
       const [aiContent, setAiContent] = useState("");
       const [aiTargetCase, setAiTargetCase] = useState(null);
       const [aiError, setAiError] = useState("");
+
+      const [isHelpOpen, setIsHelpOpen] = useState(false);
 
       const [myList, setMyList] = useState(() => {
         try {
@@ -895,15 +898,25 @@
                     入力されたキーは<span className="text-red-500">お使いのブラウザ（端末内）にのみ保存</span>されます。
                   </p>
 
-                  <a 
-                    href="https://aistudio.google.com/app/apikey" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="mb-6 w-full flex items-center justify-center gap-2 py-4 px-4 bg-blue-50 text-blue-700 font-extrabold text-xl rounded-xl border-[3px] border-blue-200 hover:bg-blue-100 active:scale-95 transition-all shadow-sm"
-                  >
-                    <ExternalLink className="w-6 h-6" />
-                    APIキーの取得・確認はこちら (Google AI Studio)
-                  </a>
+                  <div className="flex flex-col gap-3 mb-8">
+                    <button
+                      onClick={() => setIsHelpOpen(true)}
+                      className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-green-50 text-green-700 font-extrabold text-xl rounded-xl border-[3px] border-green-200 hover:bg-green-100 active:scale-95 transition-all shadow-sm"
+                    >
+                      <HelpCircle className="w-6 h-6" />
+                      初心者向け：APIキーについて（無料・取得方法）
+                    </button>
+
+                    <a 
+                      href="https://aistudio.google.com/app/apikey" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-blue-50 text-blue-700 font-extrabold text-xl rounded-xl border-[3px] border-blue-200 hover:bg-blue-100 active:scale-95 transition-all shadow-sm"
+                    >
+                      <ExternalLink className="w-6 h-6" />
+                      APIキーの取得・確認はこちら (Google AI Studio)
+                    </a>
+                  </div>
 
                   <div className="flex flex-col gap-2 mb-8">
                     <label className="text-base font-bold text-gray-500 flex items-center gap-1">
@@ -933,6 +946,75 @@
                     >
                       保存して閉じる
                     </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isHelpOpen && (
+              <div className="absolute inset-0 bg-black/60 z-[140] flex items-center justify-center p-6 backdrop-blur-sm">
+                <div className="bg-white w-[600px] max-h-[90%] overflow-y-auto rounded-3xl shadow-2xl flex flex-col relative border-4 border-green-300 animate-in fade-in zoom-in duration-200">
+                  <header className="h-[80px] bg-green-50 flex items-center justify-between px-6 border-b-[3px] border-green-200 shrink-0 sticky top-0 z-10">
+                    <h2 className="text-2xl font-extrabold text-green-800 flex items-center gap-2">
+                       <HelpCircle className="w-8 h-8 text-green-600" />
+                       APIキーについて (初心者向けガイド)
+                    </h2>
+                    <button 
+                      onClick={() => setIsHelpOpen(false)}
+                      className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 border-2 border-gray-200 active:scale-95"
+                    >
+                      <X className="w-8 h-8" />
+                    </button>
+                  </header>
+                  
+                  <div className="p-8 flex flex-col gap-8">
+                    <section>
+                      <h3 className="text-2xl font-black text-gray-800 flex items-center gap-2 mb-3">
+                        <Key className="w-6 h-6 text-yellow-500" />
+                        APIキーとは？
+                      </h3>
+                      <p className="text-lg font-bold text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl border-2 border-gray-100">
+                        AIに「私のお願いを聞いて」と証明するための、あなた専用のパスワード（合鍵）のようなものです。この鍵を使うことで、アプリが直接GoogleのAIと通信できるようになります。
+                      </p>
+                    </section>
+
+                    <section>
+                      <h3 className="text-2xl font-black text-gray-800 flex items-center gap-2 mb-3">
+                        <CreditCard className="w-6 h-6 text-blue-500" />
+                        無料ですか？勝手に課金されない？
+                      </h3>
+                      <p className="text-lg font-bold text-gray-600 leading-relaxed bg-blue-50 p-4 rounded-xl border-2 border-blue-100">
+                        GoogleのGemini APIは、一定回数（1分間に15回、1日に1,500回）まで<span className="text-red-500">完全無料</span>で使えます。
+                        クレジットカードの登録も不要なので、勝手に課金される心配はありません。学校の業務で使う分には、この無料枠で十分に足ります。
+                      </p>
+                    </section>
+
+                    <section>
+                      <h3 className="text-2xl font-black text-gray-800 flex items-center gap-2 mb-3">
+                        <CheckCircle className="w-6 h-6 text-green-500" />
+                        APIキーの取得手順（約3分）
+                      </h3>
+                      <div className="flex flex-col gap-3">
+                        {[
+                          "Googleアカウント（@gmail.comなど）を用意し、ログインしておきます。",
+                          "「APIキーの取得・確認はこちら」ボタンから Google AI Studio にアクセスします。",
+                          "画面の指示に従い利用規約に同意します（チェックを入れて Continue）。",
+                          "画面左側のメニューから「Get API key」を選びます。",
+                          "「Create API key」という青いボタンを押し、「Create API key in new project」を選びます。",
+                          "少し待つと「AIzaSy...」から始まる長い文字列（APIキー）が表示されるので、「Copy」を押します。",
+                          "このアプリの設定画面に戻り、入力欄に貼り付けて「保存して閉じる」を押せば完了です！"
+                        ].map((step, idx) => (
+                          <div key={idx} className="flex gap-3 bg-white p-3 rounded-xl border-2 border-gray-100 shadow-sm">
+                            <span className="flex-shrink-0 w-8 h-8 bg-green-100 text-green-700 font-black rounded-full flex items-center justify-center text-lg">
+                              {idx + 1}
+                            </span>
+                            <p className="text-lg font-bold text-gray-700 mt-0.5 leading-snug">
+                              {step}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
                   </div>
                 </div>
               </div>
