@@ -111,10 +111,6 @@
     };
 
     function App() {
-      const [isUnlocked, setIsUnlocked] = useState(() => localStorage.getItem('app_unlocked') === 'true');
-      const [passcodeInput, setPasscodeInput] = useState("");
-      const [passcodeError, setPasscodeError] = useState("");
-
       const [cases, setCases] = useState([]);
       const [isDataLoading, setIsDataLoading] = useState(true);
       const [isFallbackMode, setIsFallbackMode] = useState(false);
@@ -163,8 +159,6 @@
       }, [myList]);
 
       useEffect(() => {
-        if (!isUnlocked) return;
-
         const loadCasesData = async () => {
           try {
             const response = await fetch('./cases.json');
@@ -211,7 +205,7 @@
           }
         };
         loadCasesData();
-      }, [isUnlocked]);
+      }, []);
 
       useEffect(() => {
         const handleResize = () => {
@@ -274,25 +268,6 @@
         setApiKey("");
         setTempApiKey("");
         localStorage.removeItem('gemini_api_key');
-      };
-
-      const handleUnlockSubmit = (e) => {
-        e.preventDefault();
-        try {
-          const hashedInput = btoa(passcodeInput.split('').reverse().join(''));
-          const secret = "aWEza2w5dW8xc2M=";
-
-          if (hashedInput === secret) {
-            localStorage.setItem('app_unlocked', 'true');
-            setIsUnlocked(true);
-            setPasscodeError("");
-          } else {
-            setPasscodeError("パスコードが正しくありません");
-            setPasscodeInput("");
-          }
-        } catch (error) {
-          setPasscodeError("無効な文字が含まれています");
-        }
       };
 
       const addToMyList = (type, title, content, caseData) => {
@@ -392,43 +367,6 @@
           setAiLoading(false);
         }
       };
-
-      if (!isUnlocked) {
-        return (
-          <div className="fixed inset-0 bg-gray-900 flex items-center justify-center overflow-hidden select-none touch-none">
-             <div className="bg-white p-10 rounded-3xl shadow-2xl flex flex-col items-center max-w-md w-full mx-6 border-4 border-purple-200 animate-in fade-in zoom-in duration-300">
-                <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                  <Lock className="w-12 h-12 text-purple-600" />
-                </div>
-                <h2 className="text-3xl font-extrabold text-gray-800 mb-3">アクセス制限</h2>
-                <p className="text-gray-500 font-bold mb-8 text-center text-lg leading-relaxed">
-                  このアプリを利用するには<br/>パスコードを入力してください
-                </p>
-                
-                <form onSubmit={handleUnlockSubmit} className="w-full flex flex-col gap-5">
-                  <input
-                    type="password"
-                    value={passcodeInput}
-                    onChange={(e) => setPasscodeInput(e.target.value)}
-                    className="w-full p-5 rounded-2xl border-[3px] border-gray-200 focus:border-purple-500 outline-none text-2xl font-bold font-mono text-center shadow-sm"
-                    placeholder="パスコード"
-                  />
-                  {passcodeError && (
-                    <p className="text-red-500 font-extrabold text-center bg-red-50 p-2 rounded-lg border-2 border-red-200">
-                      {passcodeError}
-                    </p>
-                  )}
-                  <button
-                    type="submit"
-                    className="w-full py-5 rounded-2xl font-extrabold text-2xl text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg transition-transform active:scale-95 mt-2"
-                  >
-                    ロック解除
-                  </button>
-                </form>
-             </div>
-          </div>
-        );
-      }
 
       return (
         <div className="fixed inset-0 bg-gray-900 overflow-hidden select-none">
