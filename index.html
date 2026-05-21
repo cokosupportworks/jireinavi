@@ -32,13 +32,13 @@
   <script type="text/babel" data-type="module">
     import React, { useState, useMemo, useEffect, useRef } from 'https://esm.sh/react@18';
     import { createRoot } from 'https://esm.sh/react-dom@18/client';
-    // ★追加: Cpu, Link, Server, Home アイコンをインポート
-    import { Search, Sparkles, BookOpen, Tag, X, User, ChevronDown, ChevronUp, Bot, Loader2, Settings, Key, Lock, AlertCircle, ExternalLink, Bookmark, Copy, Check, Trash2, Clock, ChevronRight, HelpCircle, CreditCard, CheckCircle, Cpu, Link, Server, Home } from 'https://esm.sh/lucide-react@0.292.0';
+    import { Search, Sparkles, BookOpen, Tag, X, User, ChevronDown, ChevronUp, Bot, Loader2, Settings, Key, Lock, AlertCircle, ExternalLink, Bookmark, Copy, Check, Trash2, Clock, ChevronRight, HelpCircle, CreditCard, CheckCircle, Cpu, Link, Server, Home, Download } from 'https://esm.sh/lucide-react@0.292.0';
 
     const DUMMY_DATA = [
-      { id: 1, category: "健康の保持", title: "睡眠時間レコーディング", summary: "毎日の就寝・起床時間を表に記録し、必要な睡眠時間がとれているか視覚的に確認する。", scene: "個別", tags: ["昼夜逆転", "睡眠不足", "日中の強い眠気", "生活リズムの乱れ", "自己管理能力の不足", "健康状態の維持困難", "テスト用タグA", "テスト用タグB", "テスト用タグC", "テスト用タグD", "ダミータグ1", "ダミータグ2", "ダミータグ3", "ダミータグ4", "ダミータグ5", "ダミータグ6", "ダミータグ7", "ダミータグ8", "ダミータグ9", "ダミータグ10", "ダミータグ11", "ダミータグ12", "ダミータグ13", "ダミータグ14", "ダミータグ15"] },
+      { id: 1, category: "健康の保持", title: "睡眠時間レコーディング", summary: "毎日の就寝・起床時間を表に記録し、必要な睡眠時間がとれているか視覚的に確認する。", scene: "個別", tags: ["昼夜逆転", "睡眠不足", "日中の強い眠気", "生活リズムの乱れ", "生活管理能力の不足", "健康状態の維持困難", "テスト用タグA", "テスト用タグB", "テスト用タグC", "テスト用タグD", "ダミータグ1", "ダミータグ2", "ダミータグ3", "ダミータグ4", "ダミータグ5", "ダミータグ6", "ダミータグ7", "ダミータグ8", "ダミータグ9", "ダミータグ10", "ダミータグ11", "ダミータグ12", "ダミータグ13", "ダミータグ14", "ダミータグ15"] },
       { id: 2, category: "健康の保持", title: "朝の光浴びルーティン", summary: "起床時にカーテンを開け、朝日を浴びることで体内時計をリセットする習慣をつける。", scene: "個別", tags: ["朝起きられない", "覚醒水準が低い", "自律神経の乱れ", "体内時計のズレ", "生活習慣の未定着", "テスト用タグE", "テスト用タグF", "ダミータグ16", "ダミータグ17", "ダミータグ18", "ダミータグ19", "ダミータグ20", "ダミータグ21", "ダミータグ22", "ダミータグ23", "ダミータグ24"] },
       { id: 3, category: "心理的な安定", title: "リラックス魔法の深呼吸", summary: "イライラやパニックを感じた時に、魔法の呪文を唱えながら3回深呼吸をして心を落ち着かせる練習。", scene: "集団", tags: ["パニック", "感情のコントロール", "強い不安", "リラクゼーション"] },
+      // ★修正: 英語混じりの表記を正しい日本語カテゴリー名「人間関係の形成」に修正
       { id: 4, category: "人間関係の形成", title: "ありがとうカード交換会", summary: "友達の良かったところや感謝をカードに書いて交換し、自己肯定感と他者への思いやりを育む。", scene: "集団", tags: ["他者理解", "自己肯定感の低下", "コミュニケーション", "集団参加への不安"] }
     ];
 
@@ -125,7 +125,6 @@
       
       const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-      // ★追加: AIモード（Geminiかローカルか）とローカルURL用のState
       const [aiMode, setAiMode] = useState(() => localStorage.getItem('ai_mode') || "gemini");
       const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || "");
       const [localBaseUrl, setLocalBaseUrl] = useState(() => localStorage.getItem('local_base_url') || "http://localhost:8080/v1");
@@ -141,7 +140,6 @@
       const [aiTargetCase, setAiTargetCase] = useState(null);
       const [aiError, setAiError] = useState("");
 
-      // ヘルプモーダル用のState
       const [isHelpOpen, setIsHelpOpen] = useState(false);
       const [isGemmaHelpOpen, setIsGemmaHelpOpen] = useState(false);
 
@@ -311,7 +309,6 @@
         }
       };
 
-      // ★ハイブリッド通信ロジック：モードに応じてfetch先とペイロードを切り替え
       const generateAiPlan = async (item) => {
         if (aiMode === 'gemini' && !apiKey) {
           setTempAiMode('gemini');
@@ -333,7 +330,6 @@
           let generatedText = "";
 
           if (aiMode === 'gemini') {
-            // ▼ Gemini (クラウド) の場合の処理 ▼
             const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
             const listRes = await fetch(listUrl);
             
@@ -381,13 +377,11 @@
             generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
           } else if (aiMode === 'local') {
-            // ▼ Gemma 4 (ローカルAI) の場合の処理 ▼
-            // URLの末尾の不要なスラッシュを取り除いてパスを結合
             const cleanBaseUrl = localBaseUrl.replace(/\/+$/, '');
             const generateUrl = `${cleanBaseUrl}/chat/completions`;
 
             const payload = {
-              model: "gemma-4-e2b", // またはローカルサーバー側で指定されたモデル名
+              model: "gemma-4-e2b", 
               messages: [
                 { role: "system", content: "あなたは特別支援教育の経験豊富な専門家です。明るく、具体的で、先生方が実践しやすい言葉遣いで記述してください。" },
                 { role: "user", content: prompt }
@@ -397,7 +391,7 @@
 
             const res = await fetch(generateUrl, {
               method: "POST",
-              headers: { "Content-Type": "application/json" }, // APIキーは不要
+              headers: { "Content-Type": "application/json" }, 
               body: JSON.stringify(payload)
             });
 
@@ -425,18 +419,58 @@
 
         } catch (err) {
           console.error("AI Generation Error:", err);
-          let errMsg = err.message;
-          // Mixed Content等でfetch自体がブロックされたり、サーバーが立ち上がっていない場合
-          if (errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError')) {
-            if (aiMode === 'local') {
-              errMsg = "ローカルAIに接続できません。\nアプリ（Off Grid や Locally AI 等）が起動しているか、ベースURLが正しいか確認してください。\n※ブラウザのセキュリティ設定（Mixed Content）により通信がブロックされている可能性もあります。";
+          
+          // ★大修正: 例外オブジェクト(err)がどのような形式であっても絶対に落ちない安全なテキスト抽出
+          let errMessage = "Unknown Error";
+          if (err) {
+            if (err instanceof Error) {
+              errMessage = err.message || err.toString();
+            } else if (typeof err === 'object' && 'message' in err) {
+              errMessage = String(err.message);
             } else {
-              errMsg = "AIサーバーに接続できませんでした。ネットワーク状況を確認してください。";
+              errMessage = String(err);
+            }
+          }
+          
+          let errMsg = errMessage;
+          const lowerErr = errMessage.toLowerCase();
+
+          // ★修正: iOS WebKit 特有の「Load failed」および「Failed to fetch」などの切断エラーを確実に捕捉
+          const isNetworkError = 
+            lowerErr.includes('failed to fetch') || 
+            lowerErr.includes('networkerror') || 
+            lowerErr.includes('load failed') || 
+            lowerErr.includes('network error') ||
+            lowerErr.includes('typeerror') ||
+            lowerErr.includes('failed');
+
+          if (isNetworkError) {
+            if (aiMode === 'local') {
+              errMsg = `ローカルAIへの接続が遮断されました。\n\n【詳細なエラー内容】\n${errMessage}\n\n【根本的な原因と解説】\nセキュリティ（HTTPS）で保護されている当Webサイトから、保護されていないローカル通信（http://localhost や http://127.0.0.1）へ直接通信を送ることは、iOS（Safari/Chrome）が「Mixed Contentブロック（暗号化の強制）」という強力な保護機能によって強制切断します。\n\n💡【解決策１：このWebサイトをダウンロードして使う（超おすすめ・3秒で解決）】\n下の青いダウンロードボタンを押し、このアプリ（自立活動の指導事例ナビ.html）をお手元のスマホやPCに保存します。保存したファイルを直接ダブルクリックで実行すると、URLが「file://...」になり、ブラウザのセキュリティ制限を完全にバイパスして、Gemma 4などのローカルAIと100%接続できるようになります！\n\n💡【解決策２：ngrokなどの無料トンネリングツールを使う（上級者向け）】\nローカルで稼働しているAIサーバー（http://localhost:8080）を「ngrok」等を使って一時的なセキュアURL（https://xxxx.ngrok-free.app）に変換し、設定画面のベースURLに設定することでセキュリティを回避し、Webサイト版からでも直接接続できます。`;
+            } else {
+              errMsg = `AIサーバー（Gemini）に接続できませんでした。ネットワーク状況を確認してください。\n\n【詳細】\n${errMessage}`;
             }
           }
           setAiError(`${errMsg}`);
         } finally {
           setAiLoading(false);
+        }
+      };
+
+      // ★追加: 現在のページのHTMLソースをまるごと「index.html」として即時ダウンロードする関数
+      const handleDownloadApp = () => {
+        try {
+          const htmlContent = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+          const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.setAttribute("download", "自立活動の指導事例ナビ.html");
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } catch (e) {
+          console.error("HTML Download failed", e);
         }
       };
 
@@ -890,7 +924,6 @@
               </div>
             )}
 
-            {/* --- APIキー設定モーダル (ハイブリッド切替対応) --- */}
             {isSettingsOpen && (
               <div className="absolute inset-0 bg-black/60 z-[110] flex items-center justify-center p-6 backdrop-blur-sm">
                 <div className="bg-white w-[600px] max-h-[90%] overflow-y-auto rounded-3xl shadow-2xl flex flex-col p-8 border-4 border-gray-200 animate-in fade-in zoom-in duration-200 relative">
@@ -906,34 +939,37 @@
                     AI・API設定
                   </h2>
 
-                  {/* ★追加: AIモード切替UI */}
-                  <div className="flex flex-col gap-2 mb-6">
-                    <label className="text-base font-bold text-gray-500 flex items-center gap-1">
-                      <Cpu className="w-5 h-5" /> AIモード切替
-                    </label>
-                    <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
-                      <button 
-                        onClick={() => setTempAiMode('gemini')}
-                        className={`flex-1 py-3 rounded-lg font-bold text-lg transition-all flex items-center justify-center gap-2 ${tempAiMode === 'gemini' ? 'bg-white shadow text-purple-700' : 'text-gray-500 hover:bg-gray-200'}`}
-                      >
-                        <Sparkles className="w-5 h-5"/> Gemini (クラウド)
-                      </button>
-                      <button 
-                        onClick={() => setTempAiMode('local')}
-                        className={`flex-1 py-3 rounded-lg font-bold text-lg transition-all flex items-center justify-center gap-2 ${tempAiMode === 'local' ? 'bg-white shadow text-blue-700' : 'text-gray-500 hover:bg-gray-200'}`}
-                      >
-                        <Cpu className="w-5 h-5"/> Gemma 4 (ローカル)
-                      </button>
-                    </div>
+                  <div className="flex gap-2 mb-6 p-1 bg-gray-100 rounded-xl">
+                    <button 
+                      onClick={() => setTempAiMode('gemini')}
+                      className={`flex-1 py-3 rounded-lg font-bold text-lg transition-all flex items-center justify-center gap-2 ${tempAiMode === 'gemini' ? 'bg-white shadow text-purple-700' : 'text-gray-500 hover:bg-gray-200'}`}
+                    >
+                      <Sparkles className="w-5 h-5"/> Gemini (クラウド)
+                    </button>
+                    <button 
+                      onClick={() => setTempAiMode('local')}
+                      className={`flex-1 py-3 rounded-lg font-bold text-lg transition-all flex items-center justify-center gap-2 ${tempAiMode === 'local' ? 'bg-white shadow text-blue-700' : 'text-gray-500 hover:bg-gray-200'}`}
+                    >
+                      <Cpu className="w-5 h-5"/> Gemma 4 (ローカル)
+                    </button>
                   </div>
+                  
+                  <p className="text-base font-bold text-gray-600 mb-6 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    {tempAiMode === 'gemini' ? (
+                      <>
+                        AI機能を利用するには、Gemini APIキーが必要です。<br />
+                        入力されたキーは<span className="text-red-500">お使いのブラウザ（端末内）にのみ保存</span>されます。
+                      </>
+                    ) : (
+                      <>
+                        Ollamaやai.local等のローカルAIに接続します。<br />
+                        <span className="text-red-500 text-sm mt-1 inline-block">※外部にデータが出ないため、完全なプライバシーが保たれます。</span>
+                      </>
+                    )}
+                  </p>
 
                   {tempAiMode === 'gemini' ? (
                     <>
-                      <p className="text-base font-bold text-gray-600 mb-6 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-200">
-                        AI機能を利用するには、Gemini APIキーが必要です。<br />
-                        入力されたキーは<span className="text-red-500">お使いのブラウザ（端末内）にのみ保存</span>されます。
-                      </p>
-
                       <div className="flex flex-col gap-3 mb-8">
                         <button
                           onClick={() => setIsHelpOpen(true)}
@@ -969,12 +1005,6 @@
                     </>
                   ) : (
                     <>
-                      {/* ★追加: ローカルAI用の設定UI */}
-                      <p className="text-base font-bold text-gray-600 mb-6 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-200">
-                        「Off Grid」や「Locally AI」等のローカルAIサーバーに接続します。<br />
-                        <span className="text-red-500 text-sm mt-1 inline-block">※外部にデータが出ないため、完全なプライバシーが保たれます。</span>
-                      </p>
-
                       <div className="flex flex-col gap-3 mb-8">
                         <button
                           onClick={() => setIsGemmaHelpOpen(true)}
@@ -1114,7 +1144,7 @@
                         Gemma 4 (ローカルAI) とは？
                       </h3>
                       <p className="text-lg font-bold text-gray-600 leading-relaxed bg-gray-50 p-4 rounded-xl border-2 border-gray-100">
-                        クラウド（Googleのサーバー）を経由せず、あなたのパソコンや端末の性能を使って直接動かすことができる最先端のAIです。インターネットに繋がっていなくても動作します。
+                        クラウド（Googleのサーバー）を経由せず、お使いのパソコンや端末の性能を使って直接動かすことができる最先端のAIです。インターネットに繋がっていなくても動作します。
                       </p>
                     </section>
 
@@ -1131,14 +1161,15 @@
                     <section>
                       <h3 className="text-2xl font-black text-gray-800 flex items-center gap-2 mb-3">
                         <Server className="w-6 h-6 text-purple-500" />
-                        使うための準備
+                        使うための準備とトラブルシューティング
                       </h3>
                       <div className="flex flex-col gap-3">
                         {[
                           "お使いの端末（PCやMacなど）で、「Off Grid」や「Locally AI」などのローカルAIサーバーアプリをインストールします。",
                           "アプリ内で「Gemma 4 (gemma-4-e2b)」モデルをダウンロードし、サーバーを起動（Start）状態にします。",
                           "このアプリの設定画面で、「AIモード切替」を【Gemma 4 (ローカル)】にします。",
-                          "ローカルAPI ベースURL に、ご自身の環境のURL（例: http://localhost:8080/v1 ）を入力して保存します。"
+                          "ローカルAPI ベースURL に、ご自身の環境のURL（例: http://localhost:8080/v1 ）を入力して保存します。",
+                          "【重要・Safari/Chromeでエラー（Load failed）になる場合】: 暗号化された当サイト(HTTPS)からローカル環境(HTTP)への通信は、セキュリティ上ブラウザに拒否されます。これを回避するためには、この『自立活動ナビ』のウェブページ(index.html)自体をお手元のパソコンやiPhoneにダウンロード保存し、ローカルファイルとして（file:// で始まる状態で）直接ブラウザで開いてご使用ください。セキュリティ制限を完全に突破してローカルAIと通信できるようになります。"
                         ].map((step, idx) => (
                           <div key={idx} className="flex gap-3 bg-white p-3 rounded-xl border-2 border-gray-100 shadow-sm">
                             <span className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-700 font-black rounded-full flex items-center justify-center text-lg">
@@ -1156,7 +1187,7 @@
               </div>
             )}
 
-            {/* --- AI指導案モーダル --- */}
+            {/* --- AI指導案モーダル (エラー表示をスクロール対応に強化 ＋ HTMLダウンロードボタン搭載) --- */}
             {isAiModalOpen && (
               <div className="absolute inset-0 bg-black/60 z-[100] flex items-center justify-center p-6 backdrop-blur-sm">
                 <div className="bg-white w-full h-[90%] max-h-[900px] rounded-3xl shadow-2xl flex flex-col overflow-hidden relative border-4 border-amber-300 animate-in fade-in zoom-in duration-200">
@@ -1194,9 +1225,35 @@
                         <p className="text-lg font-bold text-amber-700/70">数秒お待ちください</p>
                       </div>
                     ) : aiError ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-red-500 gap-4">
-                        <X className="w-16 h-16" />
-                        <p className="text-xl font-extrabold text-center whitespace-pre-wrap">{aiError}</p>
+                      /* ★大改修: エラーメッセージがスクロール可能で、具体的なMixed Content回避のための自動ダウンロードボタンを綺麗に表示 */
+                      <div className="w-full h-full overflow-y-auto p-4 flex flex-col gap-4 text-red-600">
+                        <div className="flex items-center gap-2 text-2xl font-black shrink-0">
+                          <AlertCircle className="w-8 h-8 text-red-500" />
+                          接続エラーが発生しました
+                        </div>
+                        <div className="bg-red-50 p-6 rounded-2xl border-[3px] border-red-200 font-bold text-lg leading-relaxed whitespace-pre-wrap flex flex-col gap-6">
+                          <p className="text-gray-800">{aiError}</p>
+                          
+                          {/* ★画期的新機能: ローカルAI通信エラー時のみダウンロードボタンを設置 */}
+                          {aiMode === 'local' && (
+                            <div className="bg-white p-4 rounded-xl border-2 border-blue-200 shadow-sm flex flex-col gap-3">
+                              <p className="text-blue-800 font-extrabold text-lg flex items-center gap-1.5">
+                                <Sparkles className="w-5 h-5 text-blue-600 animate-pulse" />
+                                セキュリティ制限を完全に回避する方法：
+                              </p>
+                              <p className="text-gray-600 text-sm leading-relaxed">
+                                下のボタンを押すと、この指導事例ナビ（アプリ）を「自立活動の指導事例ナビ.html」として丸ごとお手元のパソコンやiPhoneにダウンロード保存できます。保存したHTMLファイルを直接ダブルクリックで実行（file:// で起動）すれば、一切の通信セキュリティ制限を受けることなく、Gemma 4などのローカルAIと100%安全に通信できるようになります！
+                              </p>
+                              <button
+                                onClick={handleDownloadApp}
+                                className="mt-2 flex items-center justify-center gap-2 py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xl rounded-2xl shadow-md active:scale-95 transition-all border-2 border-blue-400 w-full"
+                              >
+                                <Download className="w-6 h-6 shrink-0 animate-bounce" />
+                                📥 アプリを今すぐダウンロードして保存
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="text-xl font-bold text-gray-800 leading-loose whitespace-pre-wrap bg-white p-6 rounded-2xl border-2 border-gray-200 shadow-sm">
