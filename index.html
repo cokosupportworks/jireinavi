@@ -38,7 +38,6 @@
       { id: 1, category: "健康の保持", title: "睡眠時間レコーディング", summary: "毎日の就寝・起床時間を表に記録し、必要な睡眠時間がとれているか視覚的に確認する。", scene: "個別", tags: ["昼夜逆転", "睡眠不足", "日中の強い眠気", "生活リズムの乱れ", "生活管理能力の不足", "健康状態の維持困難", "テスト用タグA", "テスト用タグB", "テスト用タグC", "テスト用タグD", "ダミータグ1", "ダミータグ2", "ダミータグ3", "ダミータグ4", "ダミータグ5", "ダミータグ6", "ダミータグ7", "ダミータグ8", "ダミータグ9", "ダミータグ10", "ダミータグ11", "ダミータグ12", "ダミータグ13", "ダミータグ14", "ダミータグ15"] },
       { id: 2, category: "健康の保持", title: "朝の光浴びルーティン", summary: "起床時にカーテンを開け、朝日を浴びることで体内時計をリセットする習慣をつける。", scene: "個別", tags: ["朝起きられない", "覚醒水準が低い", "自律神経の乱れ", "体内時計のズレ", "生活習慣の未定着", "テスト用タグE", "テスト用タグF", "ダミータグ16", "ダミータグ17", "ダミータグ18", "ダミータグ19", "ダミータグ20", "ダミータグ21", "ダミータグ22", "ダミータグ23", "ダミータグ24"] },
       { id: 3, category: "心理的な安定", title: "リラックス魔法の深呼吸", summary: "イライラやパニックを感じた時に、魔法の呪文を唱えながら3回深呼吸をして心を落ち着かせる練習。", scene: "集団", tags: ["パニック", "感情のコントロール", "強い不安", "リラクゼーション"] },
-      // ★修正: 英語混じりの表記を正しい日本語カテゴリー名「人間関係の形成」に修正
       { id: 4, category: "人間関係の形成", title: "ありがとうカード交換会", summary: "友達の良かったところや感謝をカードに書いて交換し、自己肯定感と他者への思いやりを育む。", scene: "集団", tags: ["他者理解", "自己肯定感の低下", "コミュニケーション", "集団参加への不安"] }
     ];
 
@@ -109,6 +108,68 @@
       const d = new Date(ts);
       const pad = (n) => n.toString().padStart(2, '0');
       return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+
+    // ★追加: 画面表示用のマークダウン整形レンダラー関数
+    const renderFormattedText = (text) => {
+      if (!text) return null;
+      
+      const lines = text.split('\n');
+      return lines.map((line, idx) => {
+        let currentLine = line;
+        
+        // 1. ### 【指導の目標】 などの見出し処理
+        const headerMatch = currentLine.match(/^(#{1,6})\s*(.*)$/);
+        if (headerMatch) {
+          const content = headerMatch[2].replace(/\*\*|__/g, ''); // 太字記号を除去
+          return (
+            <h4 key={idx} className="text-2xl font-black text-purple-900 mt-6 mb-3 border-b-[3px] border-purple-200 pb-1.5 leading-snug shrink-0">
+              {content}
+            </h4>
+          );
+        }
+        
+        // 2. 箇条書き (* や -) の処理
+        const listMatch = currentLine.match(/^[\*\-\+]\s+(.*)$/);
+        if (listMatch) {
+          let content = listMatch[1];
+          const boldParts = content.split(/\*\*|__/);
+          return (
+            <div key={idx} className="flex items-start gap-2 ml-4 my-2 text-[20px] font-bold text-gray-700 leading-relaxed">
+              <span className="text-purple-500 mt-1 shrink-0 font-black">・</span>
+              <span className="flex-1">
+                {boldParts.map((part, pIdx) => pIdx % 2 === 1 ? <strong key={pIdx} className="text-purple-700 font-extrabold bg-purple-50 px-1 rounded">{part}</strong> : part)}
+              </span>
+            </div>
+          );
+        }
+        
+        // 3. 一般の行における **太字** の処理
+        if (currentLine.includes('**')) {
+          const boldParts = currentLine.split(/\*\*|__/);
+          return (
+            <p key={idx} className="text-[20px] font-bold text-gray-700 leading-relaxed min-h-[1.5em] my-1.5">
+              {boldParts.map((part, pIdx) => pIdx % 2 === 1 ? <strong key={pIdx} className="text-purple-700 font-extrabold bg-purple-50 px-1 rounded">{part}</strong> : part)}
+            </p>
+          );
+        }
+        
+        // 4. 通常のプレーンテキスト行
+        return (
+          <p key={idx} className="text-[20px] font-bold text-gray-700 leading-relaxed min-h-[1.5em] my-1.5">
+            {currentLine}
+          </p>
+        );
+      });
+    };
+
+    // ★追加: コピーテキストからマークダウン記号（#や*）を完全消去し、美しい書類用テキストに整える関数
+    const cleanMarkdownForCopy = (text) => {
+      if (!text) return "";
+      return text
+        .replace(/^(#{1,6})\s*(.*)$/gm, '■ $2') // 見出し記号 ## を ■ に置換
+        .replace(/^[\*\-\+]\s+/gm, '・ ')        // リスト記号 * を ・ に置換
+        .replace(/\*\*|__/g, '');                // 太字強調記号 ** を消去
     };
 
     function App() {
@@ -325,7 +386,25 @@
         setAiError("");
 
         try {
-          const prompt = `あなたは特別支援教育の経験豊富な専門家です。明るく、具体的で、先生方が実践しやすい言葉遣いで記述してください。\n\n以下の「自立活動の指導事例」データを元に、明日から実際の授業で使える具体的な【指導の略案】を作成してください。\n\n対象：小学生〜中学生の該当課題を持つ児童生徒\n出力形式（以下の見出しに沿って箇条書きなどでわかりやすく）：\n【指導の目標】\n【準備物・環境設定】\n【指導の展開（導入・展開・まとめ）】\n【指導上の留意点・評価基準】\n\n--- 事例データ ---\n名称：${item.title}\n区分：${item.category}\n場面：${item.scene}\n概要：${item.summary}\n課題タグ：${(item.tags || []).join(', ')}`;
+          // ★修正: AIプロンプトの出力をマークダウン形式ではなく、通常のリストや記号で返すようにプロンプトを厳格化
+          const prompt = `あなたは特別支援教育の経験豊富な専門家です。明日から実際の授業で使える具体的な【指導の略案】を作成してください。
+
+※重要：出力時に「*」や「#」、「**」などのマークダウン記号は、画面表示が崩れるため【絶対に】使用しないでください。
+大見出しは「【指導の目標】」のようにカッコで囲む形式にし、箇条書きは「・」を使用し、強調したいテキストはカッコ（「」や【】）で表現してください。
+
+対象：小学生〜中学生の該当課題を持つ児童生徒
+出力形式（必ず以下の見出しに沿ってわかりやすく記述）：
+【指導の目標】
+【準備物・環境設定】
+【指導の展開（導入・展開・まとめ）】
+【指導上の留意点・評価基準】
+
+--- 事例データ ---
+名称：${item.title}
+区分：${item.category}
+場面：${item.scene}
+概要：${item.summary}
+課題タグ：${(item.tags || []).join(', ')}`;
           
           let generatedText = "";
 
@@ -344,8 +423,10 @@
 
             if (generateModels.length === 0) throw new Error("このAPIキーで利用可能なテキスト生成モデルが見つかりません。");
 
-            let selectedModel = generateModels.find(m => m.name.includes("gemini-1.5-flash"));
-            if (!selectedModel) selectedModel = generateModels.find(m => m.name.includes("gemini-1.5-pro"));
+            // ★修正: 3.5-flashを最優先、次に2.5-flash、1.5-flashの順でフォールバックするように変更
+            let selectedModel = generateModels.find(m => m.name.includes("gemini-3.5-flash"));
+            if (!selectedModel) selectedModel = generateModels.find(m => m.name.includes("gemini-2.5-flash"));
+            if (!selectedModel) selectedModel = generateModels.find(m => m.name.includes("gemini-1.5-flash"));
             if (!selectedModel) selectedModel = generateModels.find(m => m.name.includes("gemini"));
             if (!selectedModel) selectedModel = generateModels[0]; 
 
@@ -383,7 +464,7 @@
             const payload = {
               model: "gemma-4-e2b", 
               messages: [
-                { role: "system", content: "あなたは特別支援教育の経験豊富な専門家です。明るく、具体的で、先生方が実践しやすい言葉遣いで記述してください。" },
+                { role: "system", content: "あなたは特別支援教育の経験豊富な専門家です。明るく、具体的で、先生方が実践しやすい言葉遣いで記述してください。マークダウンの記号(*や#)は絶対に使用しないでください。" },
                 { role: "user", content: prompt }
               ],
               temperature: 0.7
@@ -420,7 +501,6 @@
         } catch (err) {
           console.error("AI Generation Error:", err);
           
-          // ★大修正: 例外オブジェクト(err)がどのような形式であっても絶対に落ちない安全なテキスト抽出
           let errMessage = "Unknown Error";
           if (err) {
             if (err instanceof Error) {
@@ -435,7 +515,6 @@
           let errMsg = errMessage;
           const lowerErr = errMessage.toLowerCase();
 
-          // ★修正: iOS WebKit 特有の「Load failed」および「Failed to fetch」などの切断エラーを確実に捕捉
           const isNetworkError = 
             lowerErr.includes('failed to fetch') || 
             lowerErr.includes('networkerror') || 
@@ -446,7 +525,7 @@
 
           if (isNetworkError) {
             if (aiMode === 'local') {
-              errMsg = `ローカルAIへの接続が遮断されました。\n\n【詳細なエラー内容】\n${errMessage}\n\n【根本的な原因と解説】\nセキュリティ（HTTPS）で保護されている当Webサイトから、保護されていないローカル通信（http://localhost や http://127.0.0.1）へ直接通信を送ることは、iOS（Safari/Chrome）が「Mixed Contentブロック（暗号化の強制）」という強力な保護機能によって強制切断します。\n\n💡【解決策１：このWebサイトをダウンロードして使う（超おすすめ・3秒で解決）】\n下の青いダウンロードボタンを押し、このアプリ（自立活動の指導事例ナビ.html）をお手元のスマホやPCに保存します。保存したファイルを直接ダブルクリックで実行すると、URLが「file://...」になり、ブラウザのセキュリティ制限を完全にバイパスして、Gemma 4などのローカルAIと100%接続できるようになります！\n\n💡【解決策２：ngrokなどの無料トンネリングツールを使う（上級者向け）】\nローカルで稼働しているAIサーバー（http://localhost:8080）を「ngrok」等を使って一時的なセキュアURL（https://xxxx.ngrok-free.app）に変換し、設定画面のベースURLに設定することでセキュリティを回避し、Webサイト版からでも直接接続できます。`;
+              errMsg = `ローカルAIへの接続が遮断されました。\n\n【詳細なエラー内容】\n${errMessage}\n\n【根本的な原因と解説】\nセキュリティ（HTTPS）で保護されている当Webサイトから、保護されていないローカル通信（http://localhost や http://127.0.0.1）へ直接通信を送ることは、iOS（Safari/Chrome）が「Mixed Contentブロック（暗号化の強制）」という強力な保護機能によって強制切断します。\n\n💡【解決策１：このWebサイトをダウンロードして使う（超おすすめ・3秒で解決）】\n下の青いダウンロードボタンを押し、このアプリ（自立活動の指導事例ナビ.html）をお手元のスマホやPCに保存します。保存したファイルを直接ダブルクリックで実行すると、URLが「file://...」になり、ブラウザのセキュリティ制限を完全にバイパスして、Gemma 4などのローカルAIと100%接続できるようになります！\n\n💡【解決策２：ngrokなどの無料トンネリングツールを使う（上級者向け）】\nローカルで稼働しているAIサーバー（http://localhost:8080）を「ngrok」等を使って一時的なセキュアURL（https://xxxx.ngrok-free.app）に変換し、設定画面 of ベースURLに設定することでセキュリティを回避し、Webサイト版からでも直接接続できます。`;
             } else {
               errMsg = `AIサーバー（Gemini）に接続できませんでした。ネットワーク状況を確認してください。\n\n【詳細】\n${errMessage}`;
             }
@@ -457,7 +536,6 @@
         }
       };
 
-      // ★追加: 現在のページのHTMLソースをまるごと「index.html」として即時ダウンロードする関数
       const handleDownloadApp = () => {
         try {
           const htmlContent = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
@@ -910,14 +988,16 @@
                     <p className="text-xl font-bold text-gray-700 truncate flex-1 w-full">
                       対象事例：{viewAiPlan.title}
                     </p>
-                    <CopyButton text={viewAiPlan.content} />
+                    {/* ★修正: コピー時にマークダウン記号を完全クリーンアップする関数を適用 */}
+                    <CopyButton text={cleanMarkdownForCopy(viewAiPlan.content)} />
                   </div>
                   <div 
                     className="flex-1 overflow-y-auto p-6 bg-gray-50 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-amber-300 [&::-webkit-scrollbar-thumb]:rounded-full"
                     style={{ WebkitOverflowScrolling: 'touch' }}
                   >
-                    <div className="text-xl font-bold text-gray-800 leading-loose whitespace-pre-wrap bg-white p-6 rounded-2xl border-2 border-gray-200 shadow-sm">
-                      {viewAiPlan.content}
+                    {/* ★修正: 生テキスト表示ではなく、マークダウン記号を美しくフォーマットして表示 */}
+                    <div className="bg-white p-6 rounded-2xl border-2 border-gray-200 shadow-sm flex flex-col">
+                      {renderFormattedText(viewAiPlan.content)}
                     </div>
                   </div>
                 </div>
@@ -1021,7 +1101,7 @@
                         </label>
                         <input
                           type="text"
-                          className="w-full p-4 rounded-xl border-4 border-gray-200 focus:border-blue-500 outline-none text-xl font-bold font-mono"
+                          className="w-full p-3 rounded-xl border-[3px] border-gray-200 focus:border-blue-500 outline-none text-lg font-bold font-mono"
                           placeholder="http://localhost:8080/v1"
                           value={tempLocalBaseUrl}
                           onChange={(e) => setTempLocalBaseUrl(e.target.value)}
@@ -1050,7 +1130,7 @@
               </div>
             )}
 
-            {/* --- Gemini 初心者向けガイドモーダル --- */}
+            {/* --- Gemini 初心者向けガイド --- */}
             {isHelpOpen && (
               <div className="absolute inset-0 bg-black/60 z-[140] flex items-center justify-center p-6 backdrop-blur-sm">
                 <div className="bg-white w-[600px] max-h-[90%] overflow-y-auto rounded-3xl shadow-2xl flex flex-col relative border-4 border-green-300 animate-in fade-in zoom-in duration-200">
@@ -1120,7 +1200,7 @@
               </div>
             )}
 
-            {/* --- Gemma 4 (ローカルAI) 初心者向けガイドモーダル --- */}
+            {/* --- Gemma 4 (ローカルAI) 初心者向けガイド --- */}
             {isGemmaHelpOpen && (
               <div className="absolute inset-0 bg-black/60 z-[140] flex items-center justify-center p-6 backdrop-blur-sm">
                 <div className="bg-white w-[600px] max-h-[90%] overflow-y-auto rounded-3xl shadow-2xl flex flex-col relative border-4 border-blue-300 animate-in fade-in zoom-in duration-200">
@@ -1187,7 +1267,7 @@
               </div>
             )}
 
-            {/* --- AI指導案モーダル (エラー表示をスクロール対応に強化 ＋ HTMLダウンロードボタン搭載) --- */}
+            {/* --- AI指導案モーダル --- */}
             {isAiModalOpen && (
               <div className="absolute inset-0 bg-black/60 z-[100] flex items-center justify-center p-6 backdrop-blur-sm">
                 <div className="bg-white w-full h-[90%] max-h-[900px] rounded-3xl shadow-2xl flex flex-col overflow-hidden relative border-4 border-amber-300 animate-in fade-in zoom-in duration-200">
@@ -1210,7 +1290,8 @@
                       対象事例：{aiTargetCase?.title}
                     </p>
                     {!aiLoading && !aiError && aiContent && (
-                      <CopyButton text={aiContent} />
+                      /* ★修正: コピー時にマークダウン記号を完全クリーンアップする関数を適用 */
+                      <CopyButton text={cleanMarkdownForCopy(aiContent)} />
                     )}
                   </div>
 
@@ -1225,7 +1306,6 @@
                         <p className="text-lg font-bold text-amber-700/70">数秒お待ちください</p>
                       </div>
                     ) : aiError ? (
-                      /* ★大改修: エラーメッセージがスクロール可能で、具体的なMixed Content回避のための自動ダウンロードボタンを綺麗に表示 */
                       <div className="w-full h-full overflow-y-auto p-4 flex flex-col gap-4 text-red-600">
                         <div className="flex items-center gap-2 text-2xl font-black shrink-0">
                           <AlertCircle className="w-8 h-8 text-red-500" />
@@ -1234,7 +1314,6 @@
                         <div className="bg-red-50 p-6 rounded-2xl border-[3px] border-red-200 font-bold text-lg leading-relaxed whitespace-pre-wrap flex flex-col gap-6">
                           <p className="text-gray-800">{aiError}</p>
                           
-                          {/* ★画期的新機能: ローカルAI通信エラー時のみダウンロードボタンを設置 */}
                           {aiMode === 'local' && (
                             <div className="bg-white p-4 rounded-xl border-2 border-blue-200 shadow-sm flex flex-col gap-3">
                               <p className="text-blue-800 font-extrabold text-lg flex items-center gap-1.5">
@@ -1256,8 +1335,9 @@
                         </div>
                       </div>
                     ) : (
-                      <div className="text-xl font-bold text-gray-800 leading-loose whitespace-pre-wrap bg-white p-6 rounded-2xl border-2 border-gray-200 shadow-sm">
-                        {aiContent}
+                      /* ★修正: 生テキスト表示ではなく、マークダウン記号を美しくフォーマットして表示 */
+                      <div className="text-xl font-bold text-gray-800 leading-loose whitespace-pre-wrap bg-white p-6 rounded-2xl border-2 border-gray-200 shadow-sm flex flex-col">
+                        {renderFormattedText(aiContent)}
                       </div>
                     )}
                   </div>
