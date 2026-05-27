@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>自立活動の指導事例ナビ</title>
+  <title>自立活動指導事例ナビ</title>
   
   <link rel="apple-touch-icon" href="./apple-touch-icon.png">
   <link rel="icon" href="apple-touch-icon.png">
@@ -179,7 +179,6 @@
       const [appHeight, setAppHeight] = useState(1024);
       const [offsetX, setOffsetX] = useState(0);
       
-      // ★追加: 画面の向き（縦長か横長か）とコンテナ幅を管理するState
       const [layoutMode, setLayoutMode] = useState('portrait');
       const [containerWidth, setContainerWidth] = useState(768);
       
@@ -276,23 +275,18 @@
 
       useEffect(() => {
         const handleResize = () => {
-          // ★大改修ポイント: 画面が「横長（PC等）」か「縦長（iPhone等）」かを自動検知
           const isLandscape = window.innerWidth > window.innerHeight;
           setLayoutMode(isLandscape ? 'landscape' : 'portrait');
           
-          // 横長の場合はコンテナ幅を1200px（2列表示用）、縦長の場合はこれまで通り768pxとする
           const baseWidth = isLandscape ? 1200 : 768;
           setContainerWidth(baseWidth);
 
-          // スケールは基準幅に対する割合とし、PC等の大画面では最大1倍でストップさせる
           const currentScale = Math.min(window.innerWidth / baseWidth, 1.0);
           setScale(currentScale);
           
-          // スケールに合わせて高さを計算
           const calculatedHeight = window.innerHeight / currentScale;
           setAppHeight(calculatedHeight);
 
-          // 余白（offsetX）を厳密に計算し、確実に中央に配置する
           const calculatedOffsetX = Math.max(0, (window.innerWidth - baseWidth * currentScale) / 2);
           setOffsetX(calculatedOffsetX);
         };
@@ -555,7 +549,7 @@
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.href = url;
-          link.setAttribute("download", "自立活動の指導事例ナビ.html");
+          link.setAttribute("download", "自立活動指導事例ナビ.html");
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -568,7 +562,6 @@
         <div className="fixed inset-0 bg-gray-900 overflow-hidden select-none">
           <div 
             id="app-container" 
-            // ★修正: width をハードコードせず、JSで計算した containerWidth を指定
             className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 absolute top-0 overflow-hidden flex flex-col shadow-2xl"
             style={{ 
               left: `${offsetX}px`,
@@ -579,7 +572,6 @@
             }}
           >
             
-            {/* ★修正: 各要素の幅指定を `w-[768px]` から `w-full` に変更し、コンテナの幅に追従させる */}
             <header className="absolute top-0 left-0 w-full h-[60px] flex items-center justify-center bg-white/95 backdrop-blur shadow-md border-b border-purple-200 z-30">
               {isFallbackMode && (
                 <div className="absolute left-4 px-2 py-1 bg-yellow-100 border border-yellow-300 rounded text-xs font-bold text-yellow-700 flex items-center gap-1">
@@ -588,7 +580,7 @@
               )}
               <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-500 flex items-center gap-2">
                 <Sparkles className="w-8 h-8 text-yellow-500" />
-                自立活動の指導事例ナビ
+                自立活動指導事例ナビ
                 <Sparkles className="w-8 h-8 text-yellow-500" />
               </h1>
               
@@ -728,7 +720,6 @@
                     <p className="text-2xl font-extrabold">該当する事例がありません</p>
                   </div>
                 ) : (
-                  // ★大改修ポイント: 画面が横長の場合のみ grid-cols-2 に切り替えて2列表示にする
                   <div className={`grid gap-4 ${layoutMode === 'landscape' ? 'grid-cols-2' : 'grid-cols-1'}`}>
                     {filteredCases.map((item) => (
                       <div 
@@ -812,7 +803,10 @@
             {/* --- 各種モーダル群 --- */}
 
             {confirmAddCase && (
-              <div className="absolute inset-0 bg-black/60 z-[130] flex items-center justify-center p-6 backdrop-blur-sm">
+              <div 
+                className="absolute inset-0 bg-black/60 flex items-center justify-center p-6 backdrop-blur-sm"
+                style={{ zIndex: 130 }}
+              >
                 <div className="bg-white w-[500px] rounded-3xl shadow-2xl flex flex-col p-8 border-4 border-blue-200 animate-in fade-in zoom-in duration-200 relative text-center">
                   <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Bookmark className="w-10 h-10 text-blue-500 fill-current" />
@@ -843,7 +837,10 @@
             )}
 
             {confirmDeleteId && (
-              <div className="absolute inset-0 bg-black/60 z-[130] flex items-center justify-center p-6 backdrop-blur-sm">
+              <div 
+                className="absolute inset-0 bg-black/60 flex items-center justify-center p-6 backdrop-blur-sm"
+                style={{ zIndex: 130 }}
+              >
                 <div className="bg-white w-[500px] rounded-3xl shadow-2xl flex flex-col p-8 border-4 border-red-200 animate-in fade-in zoom-in duration-200 relative text-center">
                   <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Trash2 className="w-10 h-10 text-red-500" />
@@ -871,7 +868,10 @@
             )}
 
             {isMyListOpen && (
-              <div className="absolute inset-0 bg-gray-100 z-[110] flex flex-col animate-in slide-in-from-bottom-4 duration-300">
+              <div 
+                className="absolute inset-0 bg-gray-100 flex flex-col animate-in slide-in-from-bottom-4 duration-300"
+                style={{ zIndex: 110 }}
+              >
                 <header className="h-[80px] bg-white flex items-center justify-between px-6 border-b-[3px] border-blue-200 shrink-0 shadow-sm">
                   <h2 className="text-3xl font-extrabold text-blue-800 flex items-center gap-3">
                      <Bookmark className="w-8 h-8 text-blue-500 fill-current" />
@@ -941,7 +941,10 @@
             )}
 
             {viewSavedCase && (
-              <div className="absolute inset-0 bg-black/60 z-[120] flex items-center justify-center p-6 backdrop-blur-sm">
+              <div 
+                className="absolute inset-0 bg-black/60 flex items-center justify-center p-6 backdrop-blur-sm"
+                style={{ zIndex: 120 }}
+              >
                 <div className="bg-white w-full h-[90%] max-h-[800px] rounded-3xl shadow-2xl flex flex-col overflow-hidden relative border-4 border-blue-300 animate-in fade-in zoom-in duration-200">
                   <header className="h-[80px] bg-blue-50 flex items-center justify-between px-6 border-b-[3px] border-blue-200 shrink-0">
                     <h2 className="text-2xl font-extrabold text-blue-800 flex items-center gap-2">
@@ -986,7 +989,10 @@
             )}
 
             {viewAiPlan && (
-              <div className="absolute inset-0 bg-black/60 z-[120] flex items-center justify-center p-6 backdrop-blur-sm">
+              <div 
+                className="absolute inset-0 bg-black/60 flex items-center justify-center p-6 backdrop-blur-sm"
+                style={{ zIndex: 120 }}
+              >
                 <div className="bg-white w-full h-[90%] max-h-[900px] rounded-3xl shadow-2xl flex flex-col overflow-hidden relative border-4 border-amber-300 animate-in fade-in zoom-in duration-200">
                   <header className="h-[80px] bg-amber-50 flex items-center justify-between px-6 border-b-[3px] border-amber-200 shrink-0">
                     <h2 className="text-2xl font-extrabold text-amber-800 flex items-center gap-2">
@@ -1019,7 +1025,10 @@
             )}
 
             {isSettingsOpen && (
-              <div className="absolute inset-0 bg-black/60 z-[110] flex items-center justify-center p-6 backdrop-blur-sm">
+              <div 
+                className="absolute inset-0 bg-black/60 flex items-center justify-center p-6 backdrop-blur-sm"
+                style={{ zIndex: 110 }}
+              >
                 <div className="bg-white w-[600px] max-h-[90%] overflow-y-auto rounded-3xl shadow-2xl flex flex-col p-8 border-4 border-gray-200 animate-in fade-in zoom-in duration-200 relative">
                   <button 
                     onClick={() => setIsSettingsOpen(false)}
@@ -1056,7 +1065,7 @@
                       </>
                     ) : (
                       <>
-                        Ollamaやai.local等のローカルAIに接続します。<br />
+                        LM StudioやOllama等のツールを用いてローカルAIに接続します。<br />
                         <span className="text-red-500 text-sm mt-1 inline-block">※外部にデータが出ないため、完全なプライバシーが保たれます。</span>
                       </>
                     )}
@@ -1070,7 +1079,7 @@
                           className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-green-50 text-green-700 font-extrabold text-xl rounded-xl border-[3px] border-green-200 hover:bg-green-100 active:scale-95 transition-all shadow-sm"
                         >
                           <HelpCircle className="w-6 h-6" />
-                          初心者向け：APIキーについて（無料・取得方法）
+                          初心者向け：APIキーについて(無料・取得方法)
                         </button>
 
                         <a 
@@ -1105,7 +1114,7 @@
                           className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-blue-50 text-blue-700 font-extrabold text-xl rounded-xl border-[3px] border-blue-200 hover:bg-blue-100 active:scale-95 transition-all shadow-sm"
                         >
                           <HelpCircle className="w-6 h-6" />
-                          初心者向け：Gemma 4 (ローカルAI) について
+                          PC中級者向け：Gemma 4 (ローカルAI) について
                         </button>
                       </div>
 
@@ -1146,7 +1155,10 @@
 
             {/* --- Gemini 初心者向けガイド --- */}
             {isHelpOpen && (
-              <div className="absolute inset-0 bg-black/60 z-[140] flex items-center justify-center p-6 backdrop-blur-sm">
+              <div 
+                className="absolute inset-0 bg-black/60 flex items-center justify-center p-6 backdrop-blur-sm"
+                style={{ zIndex: 140 }}
+              >
                 <div className="bg-white w-[600px] max-h-[90%] overflow-y-auto rounded-3xl shadow-2xl flex flex-col relative border-4 border-green-300 animate-in fade-in zoom-in duration-200">
                   <header className="h-[80px] bg-green-50 flex items-center justify-between px-6 border-b-[3px] border-green-200 shrink-0 sticky top-0 z-10">
                     <h2 className="text-2xl font-extrabold text-green-800 flex items-center gap-2">
@@ -1178,7 +1190,7 @@
                         無料ですか？勝手に課金されない？
                       </h3>
                       <p className="text-lg font-bold text-gray-600 leading-relaxed bg-blue-50 p-4 rounded-xl border-2 border-blue-100">
-                        GoogleのGemini APIは、一定回数（1分間に15回、1日に1,500回）まで<span className="text-red-500">完全無料</span>で使えます。
+                        GoogleのGemini APIは、一定回数(1分間に5回、1日に20回)まで<span className="text-red-500">完全無料</span>で使えます。
                         クレジットカードの登録も不要なので、勝手に課金される心配はありません。学校の業務で使う分には、この無料枠で十分に足ります。
                       </p>
                     </section>
@@ -1190,12 +1202,12 @@
                       </h3>
                       <div className="flex flex-col gap-3">
                         {[
-                          "Googleアカウント（@gmail.comなど）を用意し、ログインしておきます。",
-                          "「APIキーの取得・確認はこちら」ボタンから Google AI Studio にアクセスします。",
-                          "画面の指示に従い利用規約に同意します（チェックを入れて Continue）。",
+                          "「APIキーの取得・確認はこちら」ボタンからGoogle AI Studioにアクセスします。",
+                          "Googleアカウントでログインします。",
+                          "画面の指示に従い利用規約に同意します(チェックを入れて Continue)。",
                           "画面左側のメニューから「Get API key」を選びます。",
-                          "「Create API key」という青いボタンを押し、「Create API key in new project」を選びます。",
-                          "少し待つと「AIzaSy...」から始まる長い文字列（APIキー）が表示されるので、「Copy」を押します。",
+                          "「APIキーを作成」ボタンを押し、「インポートしたプロジェクトを選択」の項目から「プロジェクトを作成」を選び、特に必要がなければプロジェクト名はそのままで「プロジェクトを作成」ボタンを押します。",
+                          "少し待つと「AIzaSy...」から始まる長い文字列(APIキー)が表示されるので、「キーをコピー」を押します。",
                           "このアプリの設定画面に戻り、入力欄に貼り付けて「保存して閉じる」を押せば完了です！"
                         ].map((step, idx) => (
                           <div key={idx} className="flex gap-3 bg-white p-3 rounded-xl border-2 border-gray-100 shadow-sm">
@@ -1216,12 +1228,15 @@
 
             {/* --- Gemma 4 (ローカルAI) 初心者向けガイド --- */}
             {isGemmaHelpOpen && (
-              <div className="absolute inset-0 bg-black/60 z-[140] flex items-center justify-center p-6 backdrop-blur-sm">
+              <div 
+                className="absolute inset-0 bg-black/60 flex items-center justify-center p-6 backdrop-blur-sm"
+                style={{ zIndex: 140 }}
+              >
                 <div className="bg-white w-[600px] max-h-[90%] overflow-y-auto rounded-3xl shadow-2xl flex flex-col relative border-4 border-blue-300 animate-in fade-in zoom-in duration-200">
                   <header className="h-[80px] bg-blue-50 flex items-center justify-between px-6 border-b-[3px] border-blue-200 shrink-0 sticky top-0 z-10">
                     <h2 className="text-2xl font-extrabold text-blue-800 flex items-center gap-2">
                        <HelpCircle className="w-8 h-8 text-blue-600" />
-                       Gemma 4 について (初心者向け)
+                       PC中級者向け：Gemma 4 (ローカルAI) について
                     </h2>
                     <button 
                       onClick={() => setIsGemmaHelpOpen(false)}
@@ -1259,11 +1274,11 @@
                       </h3>
                       <div className="flex flex-col gap-3">
                         {[
-                          "お使いの端末（PCやMacなど）で、「Off Grid」や「Locally AI」などのローカルAIサーバーアプリをインストールします。",
-                          "アプリ内で「Gemma 4 (gemma-4-e2b)」モデルをダウンロードし、サーバーを起動（Start）状態にします。",
+                          "お使いの端末（PCやMacなど）で、「LM Studio」や「Ollama」などのローカルAIサーバーアプリをインストールします。",
+                          "アプリ内で「Gemma 4 (gemma-4-e2bなど)」モデルをダウンロードし、サーバーを起動（Start）状態にします。",
                           "このアプリの設定画面で、「AIモード切替」を【Gemma 4 (ローカル)】にします。",
                           "ローカルAPI ベースURL に、ご自身の環境のURL（例: http://localhost:8080/v1 ）を入力して保存します。",
-                          "【重要・Safari/Chromeでエラー（Load failed）になる場合】: 暗号化された当サイト(HTTPS)からローカル環境(HTTP)への通信は、セキュリティ上ブラウザに拒否されます。これを回避するためには、この『自立活動ナビ』のウェブページ(index.html)自体をお手元のパソコンやiPhoneにダウンロード保存し、ローカルファイルとして（file:// で始まる状態で）直接ブラウザで開いてご使用ください。セキュリティ制限を完全に突破してローカルAIと通信できるようになります。"
+                          "【重要・Safari/Chromeでエラー（Load failed）になる場合】: 暗号化された当サイト(HTTPS)からローカル環境(HTTP)への通信は、セキュリティ上ブラウザに拒否されます。これを回避するためには、この『指導事例ナビ』のウェブページ(index.html)自体をお手元のパソコンやiPhoneにダウンロード保存し、ローカルファイルとして（file:// で始まる状態で）直接ブラウザで開いてご使用ください。セキュリティ制限を完全に突破してローカルAIと通信できるようになります。"
                         ].map((step, idx) => (
                           <div key={idx} className="flex gap-3 bg-white p-3 rounded-xl border-2 border-gray-100 shadow-sm">
                             <span className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-700 font-black rounded-full flex items-center justify-center text-lg">
@@ -1281,9 +1296,12 @@
               </div>
             )}
 
-            {/* --- AI指導案モーダル (エラー表示をスクロール対応に強化 ＋ HTMLダウンロードボタン搭載) --- */}
+            {/* --- AI指導案モーダル --- */}
             {isAiModalOpen && (
-              <div className="absolute inset-0 bg-black/60 z-[100] flex items-center justify-center p-6 backdrop-blur-sm">
+              <div 
+                className="absolute inset-0 bg-black/60 flex items-center justify-center p-6 backdrop-blur-sm"
+                style={{ zIndex: 100 }}
+              >
                 <div className="bg-white w-full h-[90%] max-h-[900px] rounded-3xl shadow-2xl flex flex-col overflow-hidden relative border-4 border-amber-300 animate-in fade-in zoom-in duration-200">
                   
                   <header className="h-[80px] bg-gradient-to-r from-amber-100 to-orange-100 flex items-center justify-between px-6 border-b-[3px] border-amber-200 shrink-0">
