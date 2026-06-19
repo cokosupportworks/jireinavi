@@ -14,6 +14,16 @@
   <script src="https://cdn.tailwindcss.com"></script>
   
   <script src="https://unpkg.com/@babel/standalone@7.23.9/babel.min.js"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18",
+    "react/jsx-runtime": "https://esm.sh/react@18/jsx-runtime",
+    "react-dom/client": "https://esm.sh/react-dom@18/client"
+  }
+}
+</script>
+
   
   <style>
     body {
@@ -32,8 +42,8 @@
   <script type="text/babel" data-type="module">
     /** @jsx React.createElement */
     /** @jsxRuntime classic */
-    import React, { useState, useMemo, useEffect, useRef } from 'https://esm.sh/react@18?bundle';
-    import { createRoot } from 'https://esm.sh/react-dom@18/client?bundle';
+    import React, { useState, useMemo, useEffect, useRef } from 'react';
+    import { createRoot } from 'react-dom/client';
     import { Search, Sparkles, BookOpen, Tag, X, User, ChevronDown, ChevronUp, Bot, Loader2, Settings, Key, Lock, AlertCircle, ExternalLink, Bookmark, Copy, Check, Trash2, Clock, ChevronRight, HelpCircle, CreditCard, CheckCircle, Cpu, Link, Server, Home, Download } from 'https://esm.sh/lucide-react@0.292.0';
 
     const DUMMY_DATA = [
