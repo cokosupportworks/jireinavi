@@ -196,14 +196,22 @@
       
       const [isFilterOpen, setIsFilterOpen] = useState(false);
 
+      // --- AI・API Settings State ---
       const [aiMode, setAiMode] = useState(() => localStorage.getItem('ai_mode') || "gemini");
       const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || "");
       const [localBaseUrl, setLocalBaseUrl] = useState(() => localStorage.getItem('local_base_url') || "http://localhost:8080/v1");
+      const [selectedGeminiModel, setSelectedGeminiModel] = useState(() => localStorage.getItem('gemini_selected_model') || "");
       
       const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+      
       const [tempAiMode, setTempAiMode] = useState("gemini");
       const [tempApiKey, setTempApiKey] = useState("");
       const [tempLocalBaseUrl, setTempLocalBaseUrl] = useState("");
+      const [tempSelectedGeminiModel, setTempSelectedGeminiModel] = useState("");
+      
+      const [availableGeminiModels, setAvailableGeminiModels] = useState([]);
+      const [isFetchingModels, setIsFetchingModels] = useState(false);
+      const [modelFetchError, setModelFetchError] = useState("");
 
       const [isAiModalOpen, setIsAiModalOpen] = useState(false);
       const [aiLoading, setAiLoading] = useState(false);
@@ -346,12 +354,70 @@
         }
       };
 
+      // --- Gemini モデル一覧のフェッチ関数 ---
+      const fetchGeminiModels = async (key) => {
+        if (!key) return;
+        setIsFetchingModels(true);
+        setModelFetchError("");
+        try {
+          const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${key}`;
+          const listRes = await fetch(listUrl);
+          if (!listRes.ok) throw new Error("APIキーが無効か、通信エラーが発生しました。");
+          const listData = await listRes.json();
+          
+          // 無料枠で使えないモデル、古いモデル、ノイズ（画像・音声・Gemma等）を徹底的に排除
+          const generateModels = (listData.models || []).filter(m => {
+            if (!m.supportedGenerationMethods || !m.supportedGenerationMethods.includes("generateContent")) {
+              return false;
+            }
+            const nameLower = m.name.toLowerCase();
+            const excludeKeywords = [
+              'pro',          // 無料APIキーでは使用不可なため除外
+              'gemma',        // 「その他のモデル」カテゴリのため除外
+              '2.0', '-2-',   // 2.0系や古いバージョンを除外
+              'preview',      // 不安定なプレビュー版を除外
+              'latest',       // リストに存在しないショートカット名を除外
+              'customtools',
+              'tts', 'image', 'nano-banana', 'lyria', 'robotics', 
+              'computer-use', 'antigravity', 'deep-research', 'veo' // その他不要なモデルを除外
+            ];
+            
+            // excludeKeywordsのいずれかが名前に含まれていたら除外
+            return !excludeKeywords.some(keyword => nameLower.includes(keyword));
+          });
+          
+          // モデル名で降順にソート（新しい数字が上に来るように）
+          generateModels.sort((a, b) => b.name.localeCompare(a.name));
+
+          setAvailableGeminiModels(generateModels);
+          
+          // 取得したリストに現在の選択モデルが含まれているかチェックし、無ければ最新をデフォルト選択
+          setTempSelectedGeminiModel(prev => {
+            if (!prev || !generateModels.some(m => m.name === prev)) {
+              // デフォルトとして名前に '3.5-flash' か '3-flash' が含まれるものを優先的に選ぶ
+              let defaultModel = generateModels.find(m => m.name.includes("3.5-flash"));
+              if (!defaultModel) defaultModel = generateModels.find(m => m.name.includes("3-flash"));
+              if (!defaultModel) defaultModel = generateModels[0];
+              return defaultModel ? defaultModel.name : "";
+            }
+            return prev;
+          });
+        } catch (err) {
+          setModelFetchError(err.message);
+        } finally {
+          setIsFetchingModels(false);
+        }
+      };
+
       const handleSaveSettings = () => {
         setAiMode(tempAiMode);
         localStorage.setItem('ai_mode', tempAiMode);
         
         setApiKey(tempApiKey);
         localStorage.setItem('gemini_api_key', tempApiKey);
+        
+        setSelectedGeminiModel(tempSelectedGeminiModel);
+        localStorage.setItem('gemini_selected_model', tempSelectedGeminiModel);
         
         setLocalBaseUrl(tempLocalBaseUrl);
         localStorage.setItem('local_base_url', tempLocalBaseUrl);
@@ -364,6 +430,11 @@
           setApiKey("");
           setTempApiKey("");
           localStorage.removeItem('gemini_api_key');
+          
+          setSelectedGeminiModel("");
+          setTempSelectedGeminiModel("");
+          localStorage.removeItem('gemini_selected_model');
+          setAvailableGeminiModels([]);
         } else {
           setLocalBaseUrl("http://localhost:8080/v1");
           setTempLocalBaseUrl("http://localhost:8080/v1");
@@ -395,6 +466,7 @@
           setTempAiMode('gemini');
           setTempApiKey("");
           setTempLocalBaseUrl(localBaseUrl);
+          setTempSelectedGeminiModel(selectedGeminiModel);
           setIsSettingsOpen(true);
           return;
         }
@@ -428,28 +500,12 @@
           let generatedText = "";
 
           if (aiMode === 'gemini') {
-            const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-            const listRes = await fetch(listUrl);
+            if (!selectedGeminiModel) {
+               throw new Error("AIモデルが選択されていません。右上の設定（歯車アイコン）から「使用するAIモデル」を取得・選択してください。");
+            }
             
-            if (!listRes.ok) throw new Error("APIキーが無効か、モデル一覧が取得できませんでした。設定からAPIキーが正しく入力されているか確認してください。");
-            
-            const listData = await listRes.json();
-            const availableModels = listData.models || [];
-            
-            const generateModels = availableModels.filter(m => 
-              m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent")
-            );
-
-            if (generateModels.length === 0) throw new Error("このAPIキーで利用可能なテキスト生成モデルが見つかりません。");
-
-            let selectedModel = generateModels.find(m => m.name.includes("gemini-3.5-flash"));
-            if (!selectedModel) selectedModel = generateModels.find(m => m.name.includes("gemini-2.5-flash"));
-            if (!selectedModel) selectedModel = generateModels.find(m => m.name.includes("gemini-1.5-flash"));
-            if (!selectedModel) selectedModel = generateModels.find(m => m.name.includes("gemini"));
-            if (!selectedModel) selectedModel = generateModels[0]; 
-
-            const exactModelName = selectedModel.name; 
-            const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${exactModelName}:generateContent?key=${apiKey}`;
+            // selectedGeminiModel には "models/gemini-2.5-flash" のような形式の文字列が入っているため、そのままURLに組み込む
+            const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${selectedGeminiModel}:generateContent?key=${apiKey}`;
 
             const payload = {
               contents: [{ parts: [{ text: prompt }] }]
@@ -469,6 +525,12 @@
                   errorMsg = errorData.error.message;
                 }
               } catch (e) {}
+              
+              // 429 エラー (Quota Exceeded) の場合のヒントを追加
+              if (res.status === 429) {
+                 errorMsg += "\n\n💡【ヒント】利用上限に達しました。設定画面から別のAIモデル（例：FlashからLiteなど）に変更することで、引き続き無料で利用できる場合があります！";
+              }
+              
               throw new Error(`生成エラー: ${errorMsg}`);
             }
             
@@ -608,7 +670,11 @@
                   setTempAiMode(aiMode);
                   setTempApiKey(apiKey);
                   setTempLocalBaseUrl(localBaseUrl);
+                  setTempSelectedGeminiModel(selectedGeminiModel);
                   setIsSettingsOpen(true); 
+                  if (apiKey) {
+                    fetchGeminiModels(apiKey);
+                  }
                 }}
                 className="absolute right-4 w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 border-[3px] border-gray-200 active:scale-95 transition-all shadow-sm"
               >
@@ -1036,6 +1102,7 @@
               </div>
             )}
 
+            {/* --- 設定画面モーダル --- */}
             {isSettingsOpen && (
               <div 
                 className="absolute inset-0 bg-black/60 flex items-center justify-center p-6 backdrop-blur-sm"
@@ -1069,20 +1136,6 @@
                     </button>
                   </div>
                   
-                  <p className="text-base font-bold text-gray-600 mb-6 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-200">
-                    {tempAiMode === 'gemini' ? (
-                      <>
-                        AI機能を利用するには、Gemini APIキーが必要です。<br />
-                        入力されたキーは<span className="text-red-500">お使いのブラウザ（端末内）にのみ保存</span>されます。
-                      </>
-                    ) : (
-                      <>
-                        LM StudioやOllama等のツールを用いてローカルAIに接続します。<br />
-                        <span className="text-red-500 text-sm mt-1 inline-block">※外部にデータが出ないため、完全なプライバシーが保たれます。</span>
-                      </>
-                    )}
-                  </p>
-
                   {tempAiMode === 'gemini' ? (
                     <>
                       <div className="flex flex-col gap-3 mb-8">
@@ -1105,7 +1158,7 @@
                         </a>
                       </div>
 
-                      <div className="flex flex-col gap-2 mb-8">
+                      <div className="flex flex-col gap-2 mb-6">
                         <label className="text-base font-bold text-gray-500 flex items-center gap-1">
                           <Key className="w-5 h-5" /> Gemini API Key
                         </label>
@@ -1116,6 +1169,74 @@
                           value={tempApiKey}
                           onChange={(e) => setTempApiKey(e.target.value)}
                         />
+                      </div>
+
+                      <div className="flex flex-col gap-2 mb-8">
+                        <label className="text-base font-bold text-gray-500 flex items-center gap-1">
+                          <Bot className="w-5 h-5" /> 使用するAIモデル
+                        </label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <button 
+                            onClick={() => fetchGeminiModels(tempApiKey)}
+                            disabled={isFetchingModels || !tempApiKey}
+                            className="px-4 py-3 bg-purple-100 text-purple-700 font-bold rounded-xl border-[3px] border-purple-200 hover:bg-purple-200 disabled:opacity-50 whitespace-nowrap active:scale-95 transition-all"
+                          >
+                            {isFetchingModels ? "取得中..." : "一覧を取得"}
+                          </button>
+                          <select
+                            value={tempSelectedGeminiModel}
+                            onChange={(e) => setTempSelectedGeminiModel(e.target.value)}
+                            className="flex-1 p-3 rounded-xl border-[3px] border-gray-200 focus:border-purple-500 outline-none text-lg font-bold bg-white"
+                          >
+                            {availableGeminiModels.length === 0 ? (
+                              <option value="">(左のボタンで一覧を取得してください)</option>
+                            ) : (
+                              availableGeminiModels.map(m => {
+                                const displayName = m.displayName ? `${m.displayName} (${m.name.replace('models/', '')})` : m.name.replace('models/', '');
+                                return (
+                                  <option key={m.name} value={m.name}>
+                                    {displayName}
+                                  </option>
+                                );
+                              })
+                            )}
+                          </select>
+                        </div>
+                        {modelFetchError && <p className="text-red-500 text-sm font-bold mt-1">{modelFetchError}</p>}
+                      </div>
+
+                      <div className="flex justify-end gap-4 mb-8">
+                        {apiKey && (
+                          <button 
+                            onClick={handleDeleteApiKey}
+                            className="px-6 py-3 rounded-xl font-extrabold text-xl text-red-600 bg-red-50 hover:bg-red-100 border-[3px] border-red-200 transition-colors active:scale-95"
+                          >
+                            キーを削除
+                          </button>
+                        )}
+                        <button 
+                          onClick={handleSaveSettings}
+                          className="px-8 py-3 rounded-xl font-extrabold text-xl text-white bg-purple-600 hover:bg-purple-700 shadow-md transition-colors active:scale-95"
+                        >
+                          保存して閉じる
+                        </button>
+                      </div>
+
+                      <div className="bg-purple-50 p-5 rounded-2xl border-2 border-purple-200 mb-2 flex flex-col gap-4 shadow-sm">
+                        <h4 className="text-xl font-extrabold text-purple-800 flex items-center gap-2">
+                          <Sparkles className="w-6 h-6 text-yellow-500" />
+                          AIモデルの賢い使い方＆選び方
+                        </h4>
+                        <div className="flex flex-col gap-2">
+                          <p className="text-base font-bold text-gray-700 leading-relaxed bg-white p-3 rounded-xl border border-purple-100">
+                            <span className="text-purple-700 font-black text-lg">【モデルの違い】</span><br/>
+                            一般的に「Pro」は高性能ですが無料のAPIキーでは利用できません。「Flash」は高速でバランスが良く、日常的な指導案作成に最適です。「Lite」はさらに軽量なモデルです。
+                          </p>
+                          <p className="text-base font-bold text-gray-700 leading-relaxed bg-white p-3 rounded-xl border border-purple-100">
+                            <span className="text-red-600 font-black text-lg flex items-center gap-1"><AlertCircle className="w-5 h-5"/>賢い裏技：上限に達した時の回避法</span>
+                            無料枠には利用上限（1分あたり/1日あたり）があります。もし使用中に「上限に達しました (Quota exceeded)」というエラーが出た場合、ここから<span className="text-red-600 font-black bg-red-50 px-1 rounded mx-1 border border-red-100">別のモデル（例：FlashからLiteなど）に変更</span>してみてください。モデルごとに上限がカウントされているため、引き続き無料でAIを使うことができます！
+                          </p>
+                        </div>
                       </div>
                     </>
                   ) : (
@@ -1130,6 +1251,11 @@
                         </button>
                       </div>
 
+                      <p className="text-base font-bold text-gray-600 mb-6 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        LM StudioやOllama等のツールを用いてローカルAIに接続します。<br />
+                        <span className="text-red-500 text-sm mt-1 inline-block">※外部にデータが出ないため、完全なプライバシーが保たれます。</span>
+                      </p>
+
                       <div className="flex flex-col gap-2 mb-8">
                         <label className="text-base font-bold text-gray-500 flex items-center gap-1">
                           <Link className="w-5 h-5" /> ローカルAPI ベースURL
@@ -1142,25 +1268,25 @@
                           onChange={(e) => setTempLocalBaseUrl(e.target.value)}
                         />
                       </div>
+
+                      <div className="flex justify-end gap-4 mt-auto">
+                        {localBaseUrl !== 'http://localhost:8080/v1' && (
+                          <button 
+                            onClick={handleDeleteApiKey}
+                            className="px-6 py-3 rounded-xl font-extrabold text-xl text-red-600 bg-red-50 hover:bg-red-100 border-[3px] border-red-200 transition-colors active:scale-95"
+                          >
+                            設定をリセット
+                          </button>
+                        )}
+                        <button 
+                          onClick={handleSaveSettings}
+                          className="px-8 py-3 rounded-xl font-extrabold text-xl text-white bg-blue-600 hover:bg-blue-700 shadow-md transition-colors active:scale-95"
+                        >
+                          保存して閉じる
+                        </button>
+                      </div>
                     </>
                   )}
-
-                  <div className="flex justify-end gap-4 mt-auto">
-                    {((tempAiMode === 'gemini' && apiKey) || (tempAiMode === 'local' && localBaseUrl !== 'http://localhost:8080/v1')) && (
-                      <button 
-                        onClick={handleDeleteApiKey}
-                        className="px-6 py-3 rounded-xl font-extrabold text-xl text-red-600 bg-red-50 hover:bg-red-100 border-[3px] border-red-200 transition-colors active:scale-95"
-                      >
-                        {tempAiMode === 'gemini' ? 'キーを削除' : '設定をリセット'}
-                      </button>
-                    )}
-                    <button 
-                      onClick={handleSaveSettings}
-                      className={`px-8 py-3 rounded-xl font-extrabold text-xl text-white shadow-md transition-colors active:scale-95 ${tempAiMode === 'local' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700'}`}
-                    >
-                      保存して閉じる
-                    </button>
-                  </div>
                 </div>
               </div>
             )}
